@@ -58,14 +58,21 @@ struct HelperSnapshotTests {
 
   @Test func menuBarLabel() {
     assertBothAppearances(
-      MenuBarLabel(title: "DEF · Mod", isPaused: false),
+      MenuBarLabel(title: "DEF · Mod", accessibilityLabel: "KeyLayers, DEF, Mod", isPaused: false),
+      size: CGSize(width: 140, height: 24)
+    )
+  }
+
+  @Test func menuBarLabelIconOnly() {
+    assertBothAppearances(
+      MenuBarLabel(title: "", accessibilityLabel: "KeyLayers, DEF, Mod", isPaused: false),
       size: CGSize(width: 140, height: 24)
     )
   }
 
   @Test func menuBarLabelPaused() {
     assertBothAppearances(
-      MenuBarLabel(title: "DEF · Paused", isPaused: true),
+      MenuBarLabel(title: "DEF", accessibilityLabel: "KeyLayers, DEF, Paused", isPaused: true),
       size: CGSize(width: 140, height: 24)
     )
   }

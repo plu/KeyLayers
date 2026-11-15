@@ -38,7 +38,11 @@ struct KeyLayersHelperApp: App {
     MenuBarExtra {
       HelperMenuView(store: store)
     } label: {
-      MenuBarLabel(title: store.menuBarTitle, isPaused: store.isPaused)
+      MenuBarLabel(
+        title: store.menuBarTitle,
+        accessibilityLabel: store.menuBarAccessibilityLabel,
+        isPaused: store.isPaused
+      )
     }
     .menuBarExtraStyle(.menu)
   }

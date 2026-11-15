@@ -131,6 +131,26 @@ private func configuration(doubleTap: Int = 250, showLayerHUD: Bool = true) -> C
   return configuration
 }
 
+/// The menu bar title and accessibility label for the given settings and runtime state.
+@MainActor
+private func menuBar(
+  keymap: Bool = false,
+  layer: Bool = false,
+  status: EngineStatus? = nil,
+  paused: Bool = false
+) throws -> (title: String, accessibilityLabel: String) {
+  let fakes = Fakes()
+  var configuration = configuration()
+  configuration.settings.menuBarShowsKeymap = keymap
+  configuration.settings.menuBarShowsLayer = layer
+  try fakes.writeFile(configuration)
+  let store = makeStore(fakes) {
+    $0.engineStatus = status
+    $0.isPaused = paused
+  }
+  return (store.state.menuBarTitle, store.state.menuBarAccessibilityLabel)
+}
+
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct HelperFeatureTests {
@@ -431,19 +451,36 @@ struct HelperFeatureTests {
     await store.finish()
     #expect(store.state.isPaused)
     #expect(fakes.hud.value == ["Remapping paused"])
-    #expect(store.state.menuBarTitle == "DEF · Paused")
+    #expect(store.state.menuBarTitle == "")
+    #expect(store.state.menuBarAccessibilityLabel == "KeyLayers, DEF, Paused")
     #expect(fakes.paused.value == [true])
   }
 
-  @Test func menuBarTitleShowsKeymapAndLayer() async {
-    let fakes = Fakes()
-    let store = makeStore(fakes)
-    #expect(store.state.menuBarTitle == "—")
+  @Test func menuBarTitleShowsWhatIsEnabled() throws {
+    let mod = EngineStatus(activeKeymapID: Keymap.starterID, activeLayer: .mod)
+    #expect(try menuBar(status: mod).title == "")
+    #expect(try menuBar(keymap: true, status: mod).title == "DEF")
+    #expect(try menuBar(layer: true, status: mod).title == "Mod")
+    #expect(try menuBar(keymap: true, layer: true, status: mod).title == "DEF · Mod")
+  }
 
-    await store.send(.runtime(.status(EngineStatus(activeKeymapID: Keymap.starterID, activeLayer: .mod)))) {
-      $0.engineStatus = EngineStatus(activeKeymapID: Keymap.starterID, activeLayer: .mod)
-    }
-    #expect(store.state.menuBarTitle == "DEF · Mod")
+  @Test func menuBarTitleNeverSaysPaused() throws {
+    let mod = EngineStatus(activeKeymapID: Keymap.starterID, activeLayer: .mod)
+    #expect(try menuBar(keymap: true, layer: true, status: mod, paused: true).title == "DEF")
+    #expect(try menuBar(layer: true, status: mod, paused: true).title == "")
+  }
+
+  @Test func menuBarTitleBeforeStatus() throws {
+    #expect(try menuBar().title == "")
+    #expect(try menuBar(layer: true).title == "—")
+    #expect(try menuBar(keymap: true).title == "—")
+  }
+
+  @Test func menuBarAccessibilityLabelIsAlwaysComplete() throws {
+    let mod = EngineStatus(activeKeymapID: Keymap.starterID, activeLayer: .mod)
+    #expect(try menuBar().accessibilityLabel == "KeyLayers")
+    #expect(try menuBar(status: mod).accessibilityLabel == "KeyLayers, DEF, Mod")
+    #expect(try menuBar(status: mod, paused: true).accessibilityLabel == "KeyLayers, DEF, Paused")
   }
 
   @Test func pauseToggledPausesAndResumes() async {

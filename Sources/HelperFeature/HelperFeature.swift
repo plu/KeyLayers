@@ -42,11 +42,32 @@ public struct HelperFeature: Sendable {
 
     public init() {}
 
-    /// "DEF · Mod"; paused: "DEF · Paused"; before the runtime reports a status: "—".
+    /// The text next to the menu bar icon, as the settings choose: "", "DEF", "Mod" or "DEF · Mod".
+    /// Paused isn't spelled out (the icon shows it) and drops the layer, since none is active.
+    /// Before the runtime reports a status: "—", or "" when nothing is shown.
     public var menuBarTitle: String {
+      let settings = configuration.settings
+      guard settings.menuBarShowsKeymap || settings.menuBarShowsLayer else { return "" }
       guard let engineStatus else { return "—" }
-      let abbreviation = configuration.keymaps[id: engineStatus.activeKeymapID]?.abbreviation ?? "—"
-      return "\(abbreviation) · \(isPaused ? "Paused" : engineStatus.activeLayer.displayName)"
+      var parts: [String] = []
+      if settings.menuBarShowsKeymap {
+        parts.append(activeKeymapAbbreviation(engineStatus))
+      }
+      if settings.menuBarShowsLayer, !isPaused {
+        parts.append(engineStatus.activeLayer.displayName)
+      }
+      return parts.joined(separator: " · ")
+    }
+
+    /// The full state for VoiceOver, whatever the menu bar shows: "KeyLayers, DEF, Mod".
+    public var menuBarAccessibilityLabel: String {
+      guard let engineStatus else { return "KeyLayers" }
+      let layer = isPaused ? "Paused" : engineStatus.activeLayer.displayName
+      return "KeyLayers, \(activeKeymapAbbreviation(engineStatus)), \(layer)"
+    }
+
+    private func activeKeymapAbbreviation(_ engineStatus: EngineStatus) -> String {
+      configuration.keymaps[id: engineStatus.activeKeymapID]?.abbreviation ?? "—"
     }
 
     /// One line describing what the helper is doing, for the top of the menu.
