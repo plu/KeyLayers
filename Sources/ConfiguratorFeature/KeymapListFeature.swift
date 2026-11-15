@@ -54,14 +54,6 @@ public struct KeymapListFeature: Sendable {
 
   @Dependency(\.uuid) var uuid
 
-  /// `base`, or if that's taken its first two characters plus the first free digit 2…9
-  /// ("NEW" → "NE2"); `base` again when all of those are taken too.
-  static func uniqueAbbreviation(_ base: String, existing: Set<String>) -> String {
-    guard existing.contains(base) else { return base }
-    let prefix = base.prefix(2)
-    return (2 ... 9).lazy.map { "\(prefix)\($0)" }.first { !existing.contains($0) } ?? base
-  }
-
   public init() {}
 
   public var body: some ReducerOf<Self> {
@@ -73,7 +65,7 @@ public struct KeymapListFeature: Sendable {
 
       case .addTapped:
         guard !state.isReadOnly else { return .none }
-        let abbreviation = Self.uniqueAbbreviation("NEW", existing: state.abbreviations)
+        let abbreviation = Keymap.uniqueAbbreviation("NEW", existing: state.abbreviations)
         let keymap = Keymap(id: uuid(), name: "New Keymap", abbreviation: abbreviation, layers: [:])
         state.$configuration.withLock { _ = $0.keymaps.append(keymap) }
         state.selection = keymap.id
@@ -86,7 +78,7 @@ public struct KeymapListFeature: Sendable {
         var copy = original
         copy.id = uuid()
         copy.name = "\(original.name) Copy"
-        copy.abbreviation = Self.uniqueAbbreviation(original.abbreviation, existing: state.abbreviations)
+        copy.abbreviation = Keymap.uniqueAbbreviation(original.abbreviation, existing: state.abbreviations)
         state.$configuration.withLock { _ = $0.keymaps.insert(copy, at: index + 1) }
         state.selection = copy.id
         return .none

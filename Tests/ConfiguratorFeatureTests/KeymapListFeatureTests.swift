@@ -92,16 +92,6 @@ struct KeymapListFeatureTests {
     #expect(store.state.configuration.keymaps.map(\.abbreviation) == ["DEF", "DE3", "DE2"])
   }
 
-  @Test func uniqueAbbreviation() {
-    #expect(KeymapListFeature.uniqueAbbreviation("NEW", existing: []) == "NEW")
-    #expect(KeymapListFeature.uniqueAbbreviation("NEW", existing: ["NEW"]) == "NE2")
-    #expect(KeymapListFeature.uniqueAbbreviation("NEW", existing: ["NEW", "NE2", "NE4"]) == "NE3")
-    #expect(KeymapListFeature.uniqueAbbreviation("DEF", existing: ["DEF"]) == "DE2")
-    #expect(KeymapListFeature.uniqueAbbreviation("A", existing: ["A"]) == "A2")
-    let allTaken: Set<String> = Set(["NEW"] + (2 ... 9).map { "NE\($0)" })
-    #expect(KeymapListFeature.uniqueAbbreviation("NEW", existing: allTaken) == "NEW")
-  }
-
   @Test func deleteAsksForConfirmation() async throws {
     let fakes = try Fakes(file: twoKeymaps())
     let store = makeStore(fakes)
