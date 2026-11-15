@@ -61,7 +61,7 @@ verify its XPC peer with a team signature and it streams keystrokes as root. As 
 Personal Team can't add the HID Virtual Device capability. The bundle IDs under `com.plunien.keylayers`
 belong to the author's team, so use your own prefix.
 
-Setup:
+Setup (Xcode 27.2; `Tuist.swift` pins it):
 
 1. `mise install`, then `git lfs install && git lfs pull` (snapshot references are in Git LFS).
 2. `cp mise.local.toml.example mise.local.toml` and set `TUIST_TEAM_ID` and `TUIST_BUNDLE_ID_PREFIX`

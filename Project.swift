@@ -11,6 +11,7 @@ let groupPrefix = teamId.isEmpty ? prefix : "\(teamId).\(prefix)"
 var baseSettings: SettingsDictionary = [
   "SWIFT_VERSION": "6",
   "SWIFT_STRICT_CONCURRENCY": "complete",
+  "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES",
   "MACOSX_DEPLOYMENT_TARGET": "26.0",
   "ENABLE_HARDENED_RUNTIME": "YES",
   "DEVELOPMENT_TEAM": .string(teamId),

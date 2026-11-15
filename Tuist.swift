@@ -1,3 +1,5 @@
 import ProjectDescription
 
-let tuist = Tuist()
+let tuist = Tuist(
+  project: .tuist(compatibleXcodeVersions: .exact("27.2"))
+)
