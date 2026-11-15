@@ -42,6 +42,7 @@ public struct AppView: View {
     .sheet(item: $store.scope(state: \.settings, action: \.settings)) { settingsStore in
       SettingsView(store: settingsStore)
     }
+    .alert($store.scope(state: \.importExport.alert, action: \.importExport.alert))
     .task { await store.send(.task).finish() }
   }
 

@@ -25,5 +25,8 @@ struct ConfiguratorApp: App {
       AppView(store: store)
     }
     .defaultSize(width: 1000, height: 700)
+    .commands {
+      ImportExportCommands(store: store)
+    }
   }
 }

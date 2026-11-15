@@ -56,6 +56,8 @@ import Sharing
       dependencies.finder = FinderClient(reveal: { _ in })
       dependencies.modifierKeysSettings = ModifierKeysSettingsClient(remappedKeyboards: { [] })
       dependencies.systemSettings = SystemSettingsClient(open: { _ in })
+      dependencies.filePanel = FilePanelClient(chooseExportURL: { _ in nil }, chooseImportURL: { nil })
+      dependencies.fileIO = FileIOClient(read: { _ in throw CocoaError(.fileReadNoPermission) }, write: { _, _ in })
     }
 
     static func helperState(named name: String?) -> HelperConnectionState {
