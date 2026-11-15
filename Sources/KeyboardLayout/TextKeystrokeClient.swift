@@ -15,10 +15,14 @@ public struct TextKeystrokeClient: Sendable {
 }
 
 extension TextKeystrokeClient: DependencyKey {
-  public static let liveValue = TextKeystrokeClient(
-    strokes: { LiveTextKeystrokes.strokes(for: $0) },
-    capsLockIsOn: { CGEventSource.flagsState(.hidSystemState).contains(.maskAlphaShift) }
-  )
+  public static let liveValue: TextKeystrokeClient = {
+    // Build the table early so the first `strokes` call off the main thread rarely has to wait for it.
+    DispatchQueue.main.async { LiveTextKeystrokes.prepare() }
+    return TextKeystrokeClient(
+      strokes: { LiveTextKeystrokes.strokes(for: $0) },
+      capsLockIsOn: { CGEventSource.flagsState(.hidSystemState).contains(.maskAlphaShift) }
+    )
+  }()
 
   public static let testValue = TextKeystrokeClient()
 
@@ -36,8 +40,13 @@ public extension DependencyValues {
   }
 }
 
-/// The current input source's table, built on first use and rebuilt when the selected input source
-/// changes to one with a different ID.
+/// The current input source's table, rebuilt when the selected input source changes to one with a
+/// different ID.
+///
+/// Text Input Sources calls must run on the main thread, so the table is only ever built there; any
+/// thread reads it under `cache`. A call with no table yet off the main thread waits for the main
+/// thread to build it (`DispatchQueue.main.sync`, once per process, normally already done by
+/// `prepare`), so callers must not hold a lock the main thread may wait for.
 enum LiveTextKeystrokes {
   private struct Cached {
     var inputSourceID: String
@@ -51,32 +60,37 @@ enum LiveTextKeystrokes {
     _ = DistributedNotificationCenter.default().addObserver(
       forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
       object: nil,
-      queue: nil
+      queue: .main
     ) { _ in rebuild() }
   }()
 
   static func strokes(for character: Character) -> [TextStroke]? {
-    observeInputSourceChanges
-    let table = cache.withLock { cached in
-      if cached == nil {
-        cached = build(replacing: nil)
+    if cache.withLock({ $0 == nil }) {
+      if Thread.isMainThread {
+        prepare()
+      } else {
+        DispatchQueue.main.sync { prepare() }
       }
-      return cached?.table
     }
-    return table?.strokes(for: character)
+    return cache.withLock { $0?.table }?.strokes(for: character)
   }
 
+  /// Builds the table unless there already is one. Main thread only.
+  static func prepare() {
+    dispatchPrecondition(condition: .onQueue(.main))
+    observeInputSourceChanges
+    if cache.withLock({ $0 == nil }) {
+      rebuild()
+    }
+  }
+
+  /// Rebuilds the table if the input source ID changed. Main thread only.
   private static func rebuild() {
-    cache.withLock { $0 = build(replacing: $0) }
-  }
-
-  /// A table for the current input source, reusing `existing` when the input source ID is unchanged.
-  private static func build(replacing existing: Cached?) -> Cached? {
-    guard let current = KeyboardLayoutData.current() else { return nil }
-    if let existing, existing.inputSourceID == current.inputSourceID {
-      return existing
-    }
+    dispatchPrecondition(condition: .onQueue(.main))
+    guard let current = KeyboardLayoutData.current() else { return }
+    let existingID = cache.withLock { $0?.inputSourceID }
+    guard existingID != current.inputSourceID else { return }
     let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
-    return Cached(inputSourceID: current.inputSourceID, table: table)
+    cache.withLock { $0 = Cached(inputSourceID: current.inputSourceID, table: table) }
   }
 }

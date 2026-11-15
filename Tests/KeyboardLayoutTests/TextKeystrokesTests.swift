@@ -29,3 +29,20 @@ struct TextKeystrokesTests {
     #expect(german.strokes(for: "@") == [TextStroke(key: .l, modifiers: [Modifiers(.leftOption)])])
   }
 }
+
+struct LiveTextKeystrokesTests {
+  /// The live table is built on the main thread even when first asked for from a background task
+  /// (`LiveTextKeystrokes` asserts this with `dispatchPrecondition`), and matches a table built from
+  /// the current input source.
+  @Test func strokesFromABackgroundTaskMatchTheCurrentLayout() async throws {
+    let characters: [Character] = ["a", "A", "1", "@", "é", "\n", "\t"]
+    let live = await Task.detached { characters.map { LiveTextKeystrokes.strokes(for: $0) } }.value
+    let expected = try await MainActor.run {
+      let current = try #require(KeyboardLayoutData.current())
+      let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
+      return characters.map { table.strokes(for: $0) }
+    }
+    #expect(live == expected)
+    #expect(live[5] == [TextStroke(key: .returnOrEnter, modifiers: [])])
+  }
+}
