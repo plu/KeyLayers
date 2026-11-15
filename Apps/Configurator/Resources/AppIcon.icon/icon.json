@@ -1,0 +1,44 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.25490,0.52549,0.98039,1.00000",
+      "display-p3:0.11765,0.22745,0.54118,1.00000"
+    ],
+    "orientation" : {
+      "start" : { "x" : 0.5, "y" : 0 },
+      "stop" : { "x" : 0.5, "y" : 1 }
+    }
+  },
+  "groups" : [
+    {
+      "layers" : [
+        { "image-name" : "legend.svg", "name" : "legend", "glass" : false,
+          "position" : { "scale" : 1, "translation-in-points" : [ 0, 0 ] } },
+        { "image-name" : "key-front.svg", "name" : "key-front", "glass" : true,
+          "position" : { "scale" : 1, "translation-in-points" : [ 0, 0 ] } }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "specular" : true,
+      "translucency" : { "enabled" : false, "value" : 0 }
+    },
+    {
+      "layers" : [
+        { "image-name" : "key-middle.svg", "name" : "key-middle", "glass" : true, "opacity" : 0.75,
+          "position" : { "scale" : 1, "translation-in-points" : [ 0, 0 ] } }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.4 },
+      "specular" : true,
+      "translucency" : { "enabled" : true, "value" : 0.4 }
+    },
+    {
+      "layers" : [
+        { "image-name" : "key-back.svg", "name" : "key-back", "glass" : true, "opacity" : 0.5,
+          "position" : { "scale" : 1, "translation-in-points" : [ 0, 0 ] } }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.3 },
+      "specular" : true,
+      "translucency" : { "enabled" : true, "value" : 0.6 }
+    }
+  ],
+  "supported-platforms" : { "squares" : "shared" }
+}

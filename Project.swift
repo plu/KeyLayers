@@ -213,6 +213,7 @@ let project = Project(
         "InputDaemonBundleIdentifier": "$(INPUT_DAEMON_LABEL)",
       ]),
       sources: ["Apps/KeyLayersHelper/Sources/**"],
+      resources: ["Apps/Configurator/Resources/AppIcon.icon"],
       entitlements: helperEntitlements,
       dependencies: [
         .target(name: "HelperFeature"),
@@ -266,6 +267,7 @@ let project = Project(
         "InputDaemonPlistName": "$(INPUT_DAEMON_PLIST_NAME)",
       ]),
       sources: ["Apps/Configurator/Sources/**"],
+      resources: ["Apps/Configurator/Resources/AppIcon.icon"],
       entitlements: .file(path: "Apps/Configurator/Configurator.entitlements"),
       scripts: [
         .post(
