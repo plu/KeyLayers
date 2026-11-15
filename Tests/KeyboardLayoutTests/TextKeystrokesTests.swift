@@ -18,6 +18,7 @@ struct TextKeystrokesTests {
     #expect(us.strokes(for: "é") == acuteE)
     #expect(us.strokes(for: "\n") == [TextStroke(key: .returnOrEnter, modifiers: [])])
     #expect(us.strokes(for: "\r\n") == [TextStroke(key: .returnOrEnter, modifiers: [])])
+    #expect(us.strokes(for: "\r") == [TextStroke(key: .returnOrEnter, modifiers: [])])
     #expect(us.strokes(for: "\t") == [TextStroke(key: .tab, modifiers: [])])
     #expect(us.strokes(for: "☕") == nil)
   }
@@ -31,18 +32,42 @@ struct TextKeystrokesTests {
 }
 
 struct LiveTextKeystrokesTests {
-  /// The live table is built on the main thread even when first asked for from a background task
-  /// (`LiveTextKeystrokes` asserts this with `dispatchPrecondition`), and matches a table built from
-  /// the current input source.
-  @Test func strokesFromABackgroundTaskMatchTheCurrentLayout() async throws {
-    let characters: [Character] = ["a", "A", "1", "@", "é", "\n", "\t"]
-    let live = await Task.detached { characters.map { LiveTextKeystrokes.strokes(for: $0) } }.value
+  private static let characters: [Character] = ["a", "A", "1", "@", "é", "\n", "\t"]
+
+  /// `strokes` never waits for the main thread: with the main thread blocked and no table yet, a
+  /// background call returns nil at once. Once the main thread is free, the build it scheduled there
+  /// (`LiveTextKeystrokes` asserts main with `dispatchPrecondition`) yields the current layout's table.
+  @Test(.timeLimit(.minutes(1)))
+  func backgroundCallsNeverBlockAndSeeTheTableOnceBuilt() async throws {
+    let whileMainIsBlocked = await Task.detached { Self.strokesWhileMainIsBlocked() }.value
+    #expect(whileMainIsBlocked == nil)
+
     let expected = try await MainActor.run {
       let current = try #require(KeyboardLayoutData.current())
       let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
-      return characters.map { table.strokes(for: $0) }
+      return Self.characters.map { table.strokes(for: $0) }
+    }
+    var live: [[TextStroke]?] = []
+    for _ in 0 ..< 200 {
+      live = await Task.detached { Self.characters.map { LiveTextKeystrokes.strokes(for: $0) } }.value
+      if live == expected {
+        break
+      }
+      try await Task.sleep(for: .milliseconds(10))
     }
     #expect(live == expected)
-    #expect(live[5] == [TextStroke(key: .returnOrEnter, modifiers: [])])
+  }
+
+  /// Calls `strokes` while the main queue is stuck in a block; a `main.sync` inside would deadlock.
+  private static func strokesWhileMainIsBlocked() -> [TextStroke]? {
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    DispatchQueue.main.async {
+      entered.signal()
+      release.wait()
+    }
+    entered.wait()
+    defer { release.signal() }
+    return LiveTextKeystrokes.strokes(for: "a")
   }
 }

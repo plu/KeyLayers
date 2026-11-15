@@ -32,7 +32,7 @@ public struct TextKeystrokes: Sendable {
   /// The strokes that type `character`, or nil when the layout cannot type it.
   public func strokes(for character: Character) -> [TextStroke]? {
     switch character {
-    case "\n", "\r\n": [TextStroke(key: .returnOrEnter, modifiers: [])]
+    case "\n", "\r", "\r\n": [TextStroke(key: .returnOrEnter, modifiers: [])]
     case "\t": [TextStroke(key: .tab, modifiers: [])]
     default: table[character]
     }
