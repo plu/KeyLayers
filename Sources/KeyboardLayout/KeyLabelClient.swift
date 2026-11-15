@@ -34,7 +34,7 @@ public extension DependencyValues {
 /// `UCKeyTranslate` over the current keyboard layout for printing keys, `StaticKeyLabels` for the rest.
 enum LiveKeyLabels {
   static func current() -> [KeyID: String] {
-    guard let layoutData = currentLayoutData() else { return StaticKeyLabels.usANSI }
+    guard let layoutData = KeyboardLayoutData.current()?.data else { return StaticKeyLabels.usANSI }
     var labels: [KeyID: String] = [:]
     layoutData.withUnsafeBytes { raw in
       guard let layout = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return }
@@ -67,16 +67,6 @@ enum LiveKeyLabels {
     init(token: any NSObjectProtocol) {
       self.token = token
     }
-  }
-
-  private static func currentLayoutData() -> Data? {
-    for copy in [TISCopyCurrentKeyboardLayoutInputSource, TISCopyCurrentASCIICapableKeyboardLayoutInputSource] {
-      guard let source = copy()?.takeRetainedValue(),
-            let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
-      else { continue }
-      return Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
-    }
-    return nil
   }
 
   private static func translate(_ code: UInt16, _ layout: UnsafePointer<UCKeyboardLayout>) -> String? {
