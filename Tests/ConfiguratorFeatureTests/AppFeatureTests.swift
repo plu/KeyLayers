@@ -165,6 +165,40 @@ struct AppFeatureTests {
     }
   }
 
+  @Test func selectingMacroClearsKeymapSelection() async throws {
+    var file = Configuration.starter
+    let macro = Macro(id: newID, name: "Greet", steps: [])
+    file.macros = [macro]
+    let fakes = try Fakes(file: file)
+    let store = makeStore(fakes)
+    #expect(store.state.keymapList.selection == Keymap.starterID)
+
+    await store.send(.macroList(.binding(.set(\.selection, macro.id)))) {
+      $0.macroList.selection = macro.id
+      $0.keymapList.selection = nil
+      $0.editor = nil
+    }
+  }
+
+  @Test func selectingKeymapClearsMacroSelection() async throws {
+    var file = twoKeymaps()
+    let macro = Macro(id: newID, name: "Greet", steps: [])
+    file.macros = [macro]
+    let fakes = try Fakes(file: file)
+    let store = makeStore(fakes)
+    await store.send(.macroList(.binding(.set(\.selection, macro.id)))) {
+      $0.macroList.selection = macro.id
+      $0.keymapList.selection = nil
+      $0.editor = nil
+    }
+
+    await store.send(.keymapList(.binding(.set(\.selection, codingID)))) {
+      $0.keymapList.selection = codingID
+      $0.editor = fakes.makeState { KeymapEditorFeature.State(keymapID: codingID) }
+      $0.macroList.selection = nil
+    }
+  }
+
   @Test func renamingInTheEditorUpdatesTheSidebar() async throws {
     let fakes = try Fakes(file: twoKeymaps())
     let store = makeStore(fakes)

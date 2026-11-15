@@ -13,8 +13,12 @@ public struct AppView: View {
   public var body: some View {
     // A plain split (not NavigationSplitView): its translucent sidebar doesn't render in snapshots.
     HStack(spacing: 0) {
-      KeymapListView(store: store.scope(state: \.keymapList, action: \.keymapList))
-        .frame(width: 230)
+      VStack(spacing: 0) {
+        KeymapListView(store: store.scope(state: \.keymapList, action: \.keymapList))
+        Divider()
+        MacroListView(store: store.scope(state: \.macroList, action: \.macroList))
+      }
+      .frame(width: 230)
       Divider()
       VStack(spacing: 0) {
         if let message = store.loadErrorMessage {
@@ -49,6 +53,9 @@ public struct AppView: View {
   @ViewBuilder private var detail: some View {
     if let editorStore = store.scope(state: \.editor, action: \.editor) {
       KeymapEditorView(store: editorStore)
+    } else if let id = store.macroList.selection, let macro = store.configuration.macros[id: id] {
+      // Task 9 replaces this with the macro editor.
+      ContentUnavailableView(macro.name, systemImage: "bolt")
     } else {
       ContentUnavailableView("No Keymap Selected", systemImage: "keyboard")
     }

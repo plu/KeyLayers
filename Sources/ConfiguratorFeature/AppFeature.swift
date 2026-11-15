@@ -14,6 +14,7 @@ public struct AppFeature: Sendable {
   public struct State: Equatable {
     @Shared(.configuration) public var configuration: Configuration
     public var keymapList: KeymapListFeature.State
+    public var macroList: MacroListFeature.State
     /// The selected keymap's editor; `nil` when nothing is selected.
     public var editor: KeymapEditorFeature.State?
     public var status: StatusFeature.State
@@ -22,11 +23,13 @@ public struct AppFeature: Sendable {
 
     public init(
       keymapList: KeymapListFeature.State = KeymapListFeature.State(),
+      macroList: MacroListFeature.State = MacroListFeature.State(),
       status: StatusFeature.State = StatusFeature.State(),
       settings: SettingsFeature.State? = nil,
       importExport: ImportExportFeature.State = ImportExportFeature.State()
     ) {
       self.keymapList = keymapList
+      self.macroList = macroList
       editor = keymapList.selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
       self.status = status
       self.settings = settings
@@ -45,6 +48,7 @@ public struct AppFeature: Sendable {
   public enum Action: Sendable {
     case task
     case keymapList(KeymapListFeature.Action)
+    case macroList(MacroListFeature.Action)
     case editor(KeymapEditorFeature.Action)
     case status(StatusFeature.Action)
     case settingsButtonTapped
@@ -63,6 +67,22 @@ public struct AppFeature: Sendable {
     .onChange(of: \.keymapList.selection) { _, selection in
       Reduce { state, _ in
         state.editor = selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
+        // A keymap and a macro are never selected together.
+        if selection != nil {
+          state.macroList.selection = nil
+        }
+        return .none
+      }
+    }
+    Scope(state: \.macroList, action: \.macroList) {
+      MacroListFeature()
+    }
+    .onChange(of: \.macroList.selection) { _, selection in
+      Reduce { state, _ in
+        if selection != nil {
+          state.keymapList.selection = nil
+          state.editor = nil
+        }
         return .none
       }
     }
@@ -106,7 +126,7 @@ public struct AppFeature: Sendable {
         // Through the list, so the editor follows the selection.
         return .send(.keymapList(.binding(.set(\.selection, id))))
 
-      case .keymapList, .editor, .status, .settings, .importExport:
+      case .keymapList, .macroList, .editor, .status, .settings, .importExport:
         return .none
       }
     }
