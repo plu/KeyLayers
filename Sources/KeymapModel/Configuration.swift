@@ -130,7 +130,6 @@ public struct Configuration: Equatable, Sendable, Codable {
   }
 
   // swiftlint:enable large_tuple
-
   /// Removes the macro and every key bound to it.
   public mutating func removeMacro(_ id: Macro.ID) {
     for use in keysUsing(id) {
