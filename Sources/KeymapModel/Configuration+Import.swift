@@ -30,8 +30,10 @@ public extension Configuration {
   /// Every imported keymap gets a new ID from `newID`, drawn again while it is already in use, so
   /// nothing collides. Abbreviations are normalized and made unique ("DEF" → "DE2"), clashing names
   /// get " (imported)". `switchKeymap` actions that point at a keymap of `other` follow it to its
-  /// new ID. Any other target is kept as is: one that dangles in `other` but happens to be the ID
-  /// of a keymap in this configuration therefore links to that keymap.
+  /// new ID. Macros that imported keymaps use come along with new IDs (clashing names get
+  /// " (imported)") and those actions follow them; unused macros stay behind. Any other target is
+  /// kept as is: one that dangles in `other` but happens to be the ID of a keymap in this
+  /// configuration therefore links to that keymap.
   func addingKeymaps(from other: Configuration, newID: () -> Keymap.ID = { UUID() }) -> Configuration {
     importingKeymaps(from: other, newID: newID).configuration
   }
@@ -41,9 +43,8 @@ public extension Configuration {
     from other: Configuration,
     newID: () -> Keymap.ID = { UUID() }
   ) -> (configuration: Configuration, newIDs: [Keymap.ID: Keymap.ID]) {
-    var used = Set(keymaps.ids)
-    var idMap: [Keymap.ID: Keymap.ID] = [:]
-    for keymap in other.keymaps {
+    var used = Set(keymaps.ids).union(macros.ids)
+    func freshID() -> UUID {
       var id = newID()
       var attempts = 1
       while used.contains(id) {
@@ -52,9 +53,15 @@ public extension Configuration {
         attempts += 1
       }
       used.insert(id)
-      idMap[keymap.id] = id
+      return id
     }
+    var idMap: [Keymap.ID: Keymap.ID] = [:]
+    for keymap in other.keymaps {
+      idMap[keymap.id] = freshID()
+    }
+    let (importedMacros, macroIDMap) = macrosToImport(from: other, freshID: freshID)
     var result = self
+    result.macros.append(contentsOf: importedMacros)
     var abbreviations = Set(keymaps.map(\.abbreviation))
     var names = Set(keymaps.map(\.name))
     for original in other.keymaps {
@@ -67,10 +74,14 @@ public extension Configuration {
       keymap.name = Self.uniqueName(original.name, existing: names)
       keymap.layers = original.layers.mapValues { layer in
         Layer(actions: layer.actions.mapValues { action in
-          if case let .switchKeymap(target) = action, let renamed = idMap[target] {
-            return .switchKeymap(renamed)
+          switch action {
+          case let .switchKeymap(target):
+            idMap[target].map { .switchKeymap($0) } ?? action
+          case let .macro(target):
+            macroIDMap[target].map { .macro($0) } ?? action
+          default:
+            action
           }
-          return action
         })
       }
       abbreviations.insert(keymap.abbreviation)
@@ -78,6 +89,37 @@ public extension Configuration {
       result.keymaps.append(keymap)
     }
     return (result, idMap)
+  }
+
+  /// The macros of `other` that its keymaps use, with new IDs and names unique among this
+  /// configuration's, plus the old-to-new ID map.
+  private func macrosToImport(
+    from other: Configuration,
+    freshID: () -> UUID
+  ) -> (macros: [Macro], idMap: [Macro.ID: Macro.ID]) {
+    let referenced = other.referencedMacroIDs
+    var idMap: [Macro.ID: Macro.ID] = [:]
+    var names = Set(macros.map(\.name))
+    var imported: [Macro] = []
+    for original in other.macros where referenced.contains(original.id) {
+      var macro = original
+      macro.id = freshID()
+      macro.name = Self.uniqueName(original.name, existing: names)
+      names.insert(macro.name)
+      idMap[original.id] = macro.id
+      imported.append(macro)
+    }
+    return (imported, idMap)
+  }
+
+  private var referencedMacroIDs: Set<Macro.ID> {
+    Set(keymaps.flatMap { keymap in
+      keymap.layers.values.flatMap { layer in
+        layer.actions.values.compactMap { action -> Macro.ID? in
+          if case let .macro(id) = action { id } else { nil }
+        }
+      }
+    })
   }
 
   /// `name`, else "name (imported)", else "name (imported 2)", "… 3", ….

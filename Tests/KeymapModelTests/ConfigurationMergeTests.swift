@@ -170,4 +170,42 @@ struct ConfigurationMergeTests {
     let merged = current().addingKeymaps(from: other, newID: sequentialIDs())
     #expect(merged.keymaps.last?.action(for: .a, on: .base) == .switchKeymap(codingID))
   }
+
+  @Test func importBringsReferencedMacros() {
+    var keymap = Keymap(id: id(0x11), name: "One", abbreviation: "ONE")
+    keymap.setAction(.macro(id(0x51)), for: .a, on: .base)
+    var other = Configuration(keymaps: [keymap], defaultKeymapID: id(0x11))
+    other.macros = [
+      Macro(id: id(0x51), name: "Sig", steps: [.text("hi")]),
+      Macro(id: id(0x52), name: "Unused", steps: []),
+    ]
+    let merged = current().addingKeymaps(from: other, newID: sequentialIDs())
+    #expect(merged.macros.count == 1)
+    let macro = merged.macros.first
+    #expect(macro?.name == "Sig")
+    #expect(macro?.steps == [.text("hi")])
+    #expect(macro?.id != id(0x51))
+    #expect(macro.map { merged.keymaps.last?.action(for: .a, on: .base) == .macro($0.id) } == true)
+    #expect(macro?.id == id(0xA2))
+  }
+
+  @Test func importRenamesClashingMacro() {
+    var keymap = Keymap(id: id(0x11), name: "One", abbreviation: "ONE")
+    keymap.setAction(.macro(id(0x51)), for: .a, on: .base)
+    var other = Configuration(keymaps: [keymap], defaultKeymapID: id(0x11))
+    other.macros = [Macro(id: id(0x51), name: "Sig", steps: [])]
+    var base = current()
+    base.macros = [Macro(id: id(0x50), name: "Sig", steps: [])]
+    let merged = base.addingKeymaps(from: other, newID: sequentialIDs())
+    #expect(merged.macros.map(\.name) == ["Sig", "Sig (imported)"])
+  }
+
+  @Test func importKeepsDanglingMacroAction() {
+    var keymap = Keymap(id: id(0x11), name: "One", abbreviation: "ONE")
+    keymap.setAction(.macro(id(0x77)), for: .a, on: .base)
+    let other = Configuration(keymaps: [keymap], defaultKeymapID: id(0x11))
+    let merged = current().addingKeymaps(from: other, newID: sequentialIDs())
+    #expect(merged.keymaps.last?.action(for: .a, on: .base) == .macro(id(0x77)))
+    #expect(merged.macros.isEmpty)
+  }
 }
