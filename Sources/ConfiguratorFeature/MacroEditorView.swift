@@ -240,6 +240,10 @@ private struct KeyStepEditor: View {
       )
       .controlSize(.small)
     }
+    // Never wider or narrower than its controls. Fixed, so that its size is measured once and cached:
+    // otherwise every key step's controls (AppKit buttons, slow to measure) were measured again for
+    // each keystroke typed into any step, which made typing lag.
+    .fixedSize()
   }
 
   private var picker: some View {
