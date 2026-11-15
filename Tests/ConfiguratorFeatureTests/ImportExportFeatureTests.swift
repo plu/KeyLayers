@@ -52,8 +52,8 @@ struct ImportExportFeatureTests {
     let store = makeStore(fakes)
     #expect(store.state.importExport.canExport)
 
-    await store.send(.importExport(.exportTapped))
-    await store.finish()
+    await store.send(.importExport(.exportTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.exportFinished) { $0.importExport.isBusy = false }
     #expect(fakes.exportPanelNames.value == ["KeyLayers Configuration.json"])
     #expect(try fakes.externalFiles.value[exportURL] == Configuration.encoder.encode(twoKeymaps()))
     // Identical to what the configurator itself saves.
@@ -64,8 +64,8 @@ struct ImportExportFeatureTests {
     let fakes = try Fakes()
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.exportTapped))
-    await store.finish()
+    await store.send(.importExport(.exportTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.exportFinished) { $0.importExport.isBusy = false }
     #expect(fakes.exportPanelNames.value.count == 1)
     #expect(fakes.externalFiles.value.isEmpty)
   }
@@ -76,8 +76,9 @@ struct ImportExportFeatureTests {
     fakes.writeError.setValue(RegistrationFailure())
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.exportTapped))
-    await store.receive(\.importExport.exportFailed) {
+    await store.send(.importExport(.exportTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.exportFinished) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .exportFailed(message: "Operation not permitted")
     }
     await store.send(.importExport(.alert(.dismiss))) {
@@ -104,8 +105,9 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: false)
     }
     await store.send(.importExport(.alert(.presented(.addKeymaps(backup()))))) {
@@ -138,9 +140,9 @@ struct ImportExportFeatureTests {
     let store = makeStore(fakes)
     store.exhaustivity = .off
 
-    await store.send(.importExport(.exportTapped))
-    await store.finish()
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.exportTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.exportFinished)
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded)
     await store.send(.importExport(.alert(.presented(.addKeymaps(twoKeymaps())))))
     await store.skipReceivedActions()
@@ -156,8 +158,9 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: false)
     }
     await store.send(.importExport(.alert(.presented(.replaceEverything(backup()))))) {
@@ -183,8 +186,9 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: false)
     }
     await store.send(.importExport(.alert(.presented(.replaceEverything(backup()))))) {
@@ -203,8 +207,9 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: false)
     }
     await store.send(.importExport(.alert(.dismiss))) {
@@ -217,8 +222,8 @@ struct ImportExportFeatureTests {
     let fakes = try Fakes()
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
-    await store.finish()
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.importCancelled) { $0.importExport.isBusy = false }
     #expect(fakes.importPanelShown.value == 1)
   }
 
@@ -228,11 +233,12 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = Data(#"{"formatVersion": 2, "keymaps": []}"#.utf8) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importFailed) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importFailed(
         fileName: "Backup.json",
-        message: "The configuration file was written by a newer version of KeyLayers (format version 2)."
+        message: "This file can't be imported: it was written by a newer version of KeyLayers (format version 2)."
       )
     }
     #expect(store.state.configuration == .starter)
@@ -244,11 +250,12 @@ struct ImportExportFeatureTests {
     fakes.externalFiles.withValue { $0[importURL] = Data("{".utf8) }
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importFailed) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importFailed(
         fileName: "Backup.json",
-        message: "The configuration file is damaged and can't be read."
+        message: "This file can't be imported: it is damaged or isn't a KeyLayers configuration."
       )
     }
   }
@@ -258,13 +265,68 @@ struct ImportExportFeatureTests {
     fakes.importURL.setValue(importURL)
     let store = makeStore(fakes)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importFailed) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importFailed(
         fileName: "Backup.json",
-        message: ConfigurationLoadError.message(for: CocoaError(.fileReadNoSuchFile))!
+        message: "This file can't be imported: \(CocoaError(.fileReadNoSuchFile).localizedDescription)"
       )
     }
+  }
+
+  @Test func tooLargeFileIsRejectedWithoutReadingIt() async throws {
+    let fakes = try Fakes()
+    fakes.importURL.setValue(importURL)
+    fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
+    fakes.fileSizes.withValue { $0[importURL] = 5 * 1024 * 1024 + 1 }
+    let store = makeStore(fakes)
+
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
+    await store.receive(\.importExport.importFailed) {
+      $0.importExport.isBusy = false
+      $0.importExport.alert = .importFailed(
+        fileName: "Backup.json",
+        message: "The file is too large to be a KeyLayers configuration."
+      )
+    }
+    #expect(fakes.readURLs.value.isEmpty)
+  }
+
+  @Test func secondImportOrExportWhileBusyOrAlertingIsIgnored() async throws {
+    let fakes = try Fakes()
+    let (choices, choose) = AsyncStream.makeStream(of: URL?.self)
+    let store = TestStore(initialState: fakes.makeState { AppFeature.State() }) {
+      AppFeature()
+    } withDependencies: {
+      fakes.apply(to: &$0)
+      let panelShown = fakes.importPanelShown
+      $0.filePanel.chooseImportURL = {
+        panelShown.withValue { $0 += 1 }
+        for await choice in choices {
+          return choice
+        }
+        return nil
+      }
+    }
+    fakes.externalFiles.withValue { $0[importURL] = try? Configuration.encoder.encode(backup()) }
+    fakes.exportURL.setValue(exportURL)
+
+    // While the open panel is up.
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
+    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.exportTapped))
+    choose.yield(importURL)
+    await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
+      $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: false)
+    }
+    // While the choice is up.
+    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.exportTapped))
+    #expect(fakes.importPanelShown.value == 1)
+    #expect(fakes.exportPanelNames.value.isEmpty)
+    await store.send(.importExport(.alert(.dismiss))) { $0.importExport.alert = nil }
   }
 
   // MARK: Read-only
@@ -277,8 +339,9 @@ struct ImportExportFeatureTests {
     let store = makeStore(fakes)
     #expect(store.state.isReadOnly)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: true)
     }
     let alert = try #require(store.state.importExport.alert)
@@ -290,8 +353,9 @@ struct ImportExportFeatureTests {
     }
     #expect(fakes.fileData == corrupt)
 
-    await store.send(.importExport(.importTapped))
+    await store.send(.importExport(.importTapped)) { $0.importExport.isBusy = true }
     await store.receive(\.importExport.importLoaded) {
+      $0.importExport.isBusy = false
       $0.importExport.alert = .importChoice(fileName: "Backup.json", configuration: backup(), isReadOnly: true)
     }
     await store.send(.importExport(.alert(.presented(.confirmReplace(backup()))))) {

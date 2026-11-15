@@ -128,7 +128,46 @@ struct ConfigurationMergeTests {
     #expect(Keymap.uniqueAbbreviation("NEW", existing: ["NEW", "NE2", "NE4"]) == "NE3")
     #expect(Keymap.uniqueAbbreviation("DEF", existing: ["DEF"]) == "DE2")
     #expect(Keymap.uniqueAbbreviation("A", existing: ["A"]) == "A2")
-    let allTaken: Set<String> = Set(["NEW"] + (2 ... 9).map { "NE\($0)" })
-    #expect(Keymap.uniqueAbbreviation("NEW", existing: allTaken) == "NEW")
+  }
+
+  @Test func abbreviationStaysUniqueWhenAllVariantsAreTaken() {
+    var taken: Set<String> = Set(["NEW"] + (2 ... 9).map { "NE\($0)" })
+    #expect(Keymap.uniqueAbbreviation("NEW", existing: taken) == "N10")
+    taken.formUnion((10 ... 99).map { "N\($0)" })
+    let fallback = Keymap.uniqueAbbreviation("NEW", existing: taken)
+    #expect(!taken.contains(fallback))
+    #expect(fallback.count == 3)
+    // Short abbreviations too.
+    #expect(Keymap.uniqueAbbreviation("A", existing: Set(["A"] + (2 ... 9).map { "A\($0)" })) == "A10")
+
+    // Importing the own configuration ten times: DE2…DE9, then D10 and D11.
+    var configuration = Configuration.starter
+    for _ in 1 ... 10 {
+      configuration = configuration.addingKeymaps(from: .starter)
+    }
+    #expect(configuration.keymaps.map(\.abbreviation) == ["DEF"] + (2 ... 9).map { "DE\($0)" } + ["D10", "D11"])
+  }
+
+  @Test func collidingNewIDsAreRedrawn() {
+    let other = Configuration(
+      keymaps: [
+        Keymap(id: id(0x11), name: "One", abbreviation: "ONE"),
+        Keymap(id: id(0x12), name: "Two", abbreviation: "TWO"),
+      ],
+      defaultKeymapID: id(0x11)
+    )
+    // An existing ID, then a fresh one, then the one just assigned again, then another fresh one.
+    var ids = [Keymap.starterID, id(0xA1), id(0xA1), codingID, id(0xA2)][...]
+    let result = current().importingKeymaps(from: other, newID: { ids.popFirst()! })
+    #expect(result.configuration.keymaps.map(\.id) == [Keymap.starterID, codingID, id(0xA1), id(0xA2)])
+    #expect(result.newIDs == [id(0x11): id(0xA1), id(0x12): id(0xA2)])
+  }
+
+  @Test func switchKeymapDanglingInTheFileLinksToACurrentKeymapWithThatID() {
+    var keymap = Keymap(id: id(0x11), name: "One", abbreviation: "ONE")
+    keymap.setAction(.switchKeymap(codingID), for: .a, on: .base)
+    let other = Configuration(keymaps: [keymap], defaultKeymapID: id(0x11))
+    let merged = current().addingKeymaps(from: other, newID: sequentialIDs())
+    #expect(merged.keymaps.last?.action(for: .a, on: .base) == .switchKeymap(codingID))
   }
 }

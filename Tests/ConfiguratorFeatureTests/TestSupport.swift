@@ -51,6 +51,9 @@ final class Fakes: Sendable {
   /// Files outside the configuration, read and written by the file IO client.
   let externalFiles = LockIsolated<[URL: Data]>([:])
   let writeError = LockIsolated<(any Error)?>(nil)
+  /// Sizes that override the size of `externalFiles`' data.
+  let fileSizes = LockIsolated<[URL: Int]>([:])
+  let readURLs = LockIsolated<[URL]>([])
 
   init(file configuration: Configuration? = .starter) throws {
     (states, statesContinuation) = AsyncStream.makeStream()
@@ -140,7 +143,12 @@ final class Fakes: Sendable {
       }
     )
     dependencies.fileIO = FileIOClient(
+      size: { url in
+        guard let data = self.externalFiles.value[url] else { throw CocoaError(.fileReadNoSuchFile) }
+        return self.fileSizes.value[url] ?? data.count
+      },
       read: { url in
+        self.readURLs.withValue { $0.append(url) }
         guard let data = self.externalFiles.value[url] else { throw CocoaError(.fileReadNoSuchFile) }
         return data
       },
