@@ -41,6 +41,16 @@ final class Fakes: Sendable {
   let labels = LockIsolated(StaticKeyLabels.usANSI)
   let labelChanges: AsyncStream<Void>
   let labelChangesContinuation: AsyncStream<Void>.Continuation
+  /// What the save panel returns; `nil` is Cancel.
+  let exportURL = LockIsolated<URL?>(nil)
+  /// The default file names the save panel was shown with.
+  let exportPanelNames = LockIsolated<[String]>([])
+  /// What the open panel returns; `nil` is Cancel.
+  let importURL = LockIsolated<URL?>(nil)
+  let importPanelShown = LockIsolated(0)
+  /// Files outside the configuration, read and written by the file IO client.
+  let externalFiles = LockIsolated<[URL: Data]>([:])
+  let writeError = LockIsolated<(any Error)?>(nil)
 
   init(file configuration: Configuration? = .starter) throws {
     (states, statesContinuation) = AsyncStream.makeStream()
@@ -114,6 +124,33 @@ final class Fakes: Sendable {
     )
     dependencies.keyboardDetection = KeyboardDetectionClient(keyboards: { self.detectedKeyboards.value })
     dependencies.keyLabels = KeyLabelClient(labels: { self.labels.value }, changes: { self.labelChanges })
+    applyFileClients(to: &dependencies)
+  }
+
+  /// The save and open panels and the file IO of import and export.
+  private func applyFileClients(to dependencies: inout DependencyValues) {
+    dependencies.filePanel = FilePanelClient(
+      chooseExportURL: { name in
+        self.exportPanelNames.withValue { $0.append(name) }
+        return self.exportURL.value
+      },
+      chooseImportURL: {
+        self.importPanelShown.withValue { $0 += 1 }
+        return self.importURL.value
+      }
+    )
+    dependencies.fileIO = FileIOClient(
+      read: { url in
+        guard let data = self.externalFiles.value[url] else { throw CocoaError(.fileReadNoSuchFile) }
+        return data
+      },
+      write: { data, url in
+        if let error = self.writeError.value {
+          throw error
+        }
+        self.externalFiles.withValue { $0[url] = data }
+      }
+    )
   }
 
   /// Builds state under the fake file system, so its `@Shared(.configuration)` reads the fake file.

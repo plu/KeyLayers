@@ -18,16 +18,19 @@ public struct AppFeature: Sendable {
     public var editor: KeymapEditorFeature.State?
     public var status: StatusFeature.State
     @Presents public var settings: SettingsFeature.State?
+    public var importExport: ImportExportFeature.State
 
     public init(
       keymapList: KeymapListFeature.State = KeymapListFeature.State(),
       status: StatusFeature.State = StatusFeature.State(),
-      settings: SettingsFeature.State? = nil
+      settings: SettingsFeature.State? = nil,
+      importExport: ImportExportFeature.State = ImportExportFeature.State()
     ) {
       self.keymapList = keymapList
       editor = keymapList.selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
       self.status = status
       self.settings = settings
+      self.importExport = importExport
     }
 
     public var isReadOnly: Bool {
@@ -46,6 +49,7 @@ public struct AppFeature: Sendable {
     case status(StatusFeature.Action)
     case settingsButtonTapped
     case settings(PresentationAction<SettingsFeature.Action>)
+    case importExport(ImportExportFeature.Action)
   }
 
   @Dependency(\.helperRegistration) var registration
@@ -64,6 +68,9 @@ public struct AppFeature: Sendable {
     }
     Scope(state: \.status, action: \.status) {
       StatusFeature()
+    }
+    Scope(state: \.importExport, action: \.importExport) {
+      ImportExportFeature()
     }
     Reduce { state, action in
       switch action {
@@ -95,7 +102,11 @@ public struct AppFeature: Sendable {
         state.settings = SettingsFeature.State()
         return .none
 
-      case .keymapList, .editor, .status, .settings:
+      case let .importExport(.delegate(.selectKeymap(id))):
+        // Through the list, so the editor follows the selection.
+        return .send(.keymapList(.binding(.set(\.selection, id))))
+
+      case .keymapList, .editor, .status, .settings, .importExport:
         return .none
       }
     }
