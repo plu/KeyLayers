@@ -53,9 +53,8 @@ public struct AppView: View {
   @ViewBuilder private var detail: some View {
     if let editorStore = store.scope(state: \.editor, action: \.editor) {
       KeymapEditorView(store: editorStore)
-    } else if let id = store.macroList.selection, let macro = store.configuration.macros[id: id] {
-      // Task 9 replaces this with the macro editor.
-      ContentUnavailableView(macro.name, systemImage: "bolt")
+    } else if let macroEditorStore = store.scope(state: \.macroEditor, action: \.macroEditor) {
+      MacroEditorView(store: macroEditorStore)
     } else {
       ContentUnavailableView("No Keymap Selected", systemImage: "keyboard")
     }

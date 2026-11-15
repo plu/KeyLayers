@@ -94,21 +94,7 @@ public struct KeyActionEditorFeature: Sendable {
     /// `KeyID.allKnown` whose label or name contains `searchText`; keys whose label is exactly
     /// the search text come first.
     public var searchResults: [KeySearchResult] {
-      let all = KeyID.allKnown.map { key in
-        KeySearchResult(
-          key: key,
-          label: KeyCapContent.label(for: key, labels: labels),
-          name: KeyNames.name(for: key),
-          group: KeyID.mediaKeys.contains(key) ? "Media" : nil
-        )
-      }
-      let query = searchText.trimmingCharacters(in: .whitespaces)
-      guard !query.isEmpty else { return all }
-      let matches = all.filter {
-        $0.label.localizedCaseInsensitiveContains(query) || $0.name?.localizedCaseInsensitiveContains(query) == true
-      }
-      let exact = matches.filter { $0.label.localizedCaseInsensitiveCompare(query) == .orderedSame }
-      return exact + matches.filter { $0.label.localizedCaseInsensitiveCompare(query) != .orderedSame }
+      KeySearchResult.search(searchText, labels: labels)
     }
   }
 
@@ -153,24 +139,7 @@ public struct KeyActionEditorFeature: Sendable {
         guard !state.isRecording else { return .none }
         state.isRecording = true
         return .run { [helper, recorder, clock] send in
-          // Pausing lets keys reach the recorder unmapped, not as whatever the keymap turns them into. Both requests
-          // are fire-and-forget: a wedged helper may never reply, and recording must not wait.
-          let pause = await Self.helperNeedsPause(helper, clock: clock)
-          let pauseRequest: Task<Void, Never>? = pause ? Task { try? await helper.setPaused(true) } : nil
-          if pauseRequest != nil {
-            await Task.yield()
-          }
-          let key = await recorder.record()
-          if let pauseRequest {
-            // Resume after the pause request is answered (or given up on), so it can't overtake it.
-            // Unstructured, so it's sent even when recording was cancelled.
-            Task {
-              await Self.waitForReply(to: pauseRequest, clock: clock)
-              try? await helper.setPaused(false)
-            }
-            await Task.yield()
-          }
-          await send(.recorded(key))
+          await send(.recorded(Self.recordKey(helper: helper, recorder: recorder, clock: clock)))
         }
 
       case let .recorded(key):
@@ -192,6 +161,29 @@ public struct KeyActionEditorFeature: Sendable {
         return .none
       }
     }
+  }
+
+  /// Records the next key the user presses, with the helper paused meanwhile if it's running.
+  ///
+  /// Pausing lets keys reach the recorder unmapped, not as whatever the keymap turns them into.
+  static func recordKey(helper: HelperClient, recorder: KeyRecorderClient, clock: any Clock<Duration>) async -> KeyID? {
+    // Both requests are fire-and-forget: a wedged helper may never reply, and recording must not wait.
+    let pause = await helperNeedsPause(helper, clock: clock)
+    let pauseRequest: Task<Void, Never>? = pause ? Task { try? await helper.setPaused(true) } : nil
+    if pauseRequest != nil {
+      await Task.yield()
+    }
+    let key = await recorder.record()
+    if let pauseRequest {
+      // Resume after the pause request is answered (or given up on), so it can't overtake it.
+      // Unstructured, so it's sent even when recording was cancelled.
+      Task {
+        await waitForReply(to: pauseRequest, clock: clock)
+        try? await helper.setPaused(false)
+      }
+      await Task.yield()
+    }
+    return key
   }
 
   /// Returns when `request` finishes or after `pauseReplyTimeout`, whichever comes first.
@@ -247,6 +239,26 @@ public struct KeySearchResult: Equatable, Identifiable, Sendable {
 
   public var id: KeyID {
     key
+  }
+
+  /// `KeyID.allKnown` whose label or name contains `query`; keys whose label is exactly the query
+  /// come first.
+  static func search(_ query: String, labels: [KeyID: String]) -> [KeySearchResult] {
+    let all = KeyID.allKnown.map { key in
+      KeySearchResult(
+        key: key,
+        label: KeyCapContent.label(for: key, labels: labels),
+        name: KeyNames.name(for: key),
+        group: KeyID.mediaKeys.contains(key) ? "Media" : nil
+      )
+    }
+    let query = query.trimmingCharacters(in: .whitespaces)
+    guard !query.isEmpty else { return all }
+    let matches = all.filter {
+      $0.label.localizedCaseInsensitiveContains(query) || $0.name?.localizedCaseInsensitiveContains(query) == true
+    }
+    let exact = matches.filter { $0.label.localizedCaseInsensitiveCompare(query) == .orderedSame }
+    return exact + matches.filter { $0.label.localizedCaseInsensitiveCompare(query) != .orderedSame }
   }
 
   /// What VoiceOver reads: just the name for glyph-labelled media keys, else "label, name".

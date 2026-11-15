@@ -177,7 +177,52 @@ struct AppFeatureTests {
       $0.macroList.selection = macro.id
       $0.keymapList.selection = nil
       $0.editor = nil
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: macro.id) }
     }
+  }
+
+  @Test func selectingAMissingMacroClearsTheSelection() async throws {
+    let fakes = try Fakes()
+    let store = makeStore(fakes)
+    let missing = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B9"))
+
+    await store.send(.macroList(.binding(.set(\.selection, missing)))) {
+      $0.keymapList.selection = nil
+      $0.editor = nil
+    }
+  }
+
+  @Test func macroRemovedElsewhereClosesTheEditor() async throws {
+    var file = Configuration.starter
+    let macro = Macro(id: newID, name: "Greet", steps: [])
+    file.macros = [macro]
+    let fakes = try Fakes(file: file)
+    let store = makeStore(fakes)
+    await store.send(.macroList(.binding(.set(\.selection, macro.id)))) {
+      $0.macroList.selection = macro.id
+      $0.keymapList.selection = nil
+      $0.editor = nil
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: macro.id) }
+    }
+
+    let task = await store.send(.macroEditor(.task)) { $0.macroEditor?.labels = fakes.labels.value }
+    // Another process saved the file without the macro.
+    store.state.$configuration.withLock { $0.macros = [] }
+    await store.receive(\.macroEditor.macroChanged)
+    await store.receive(\.macroEditor.delegate.macroRemoved) {
+      $0.macroList.selection = nil
+      $0.macroEditor = nil
+    }
+    await task.cancel()
+  }
+
+  @Test func initialMacroSelectionWithoutMacroIsCleared() throws {
+    let fakes = try Fakes()
+    let state = fakes.makeState {
+      AppFeature.State(macroList: MacroListFeature.State(selection: newID))
+    }
+    #expect(state.macroList.selection == nil)
+    #expect(state.macroEditor == nil)
   }
 
   @Test func selectingKeymapClearsMacroSelection() async throws {
@@ -190,12 +235,14 @@ struct AppFeatureTests {
       $0.macroList.selection = macro.id
       $0.keymapList.selection = nil
       $0.editor = nil
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: macro.id) }
     }
 
     await store.send(.keymapList(.binding(.set(\.selection, codingID)))) {
       $0.keymapList.selection = codingID
       $0.editor = fakes.makeState { KeymapEditorFeature.State(keymapID: codingID) }
       $0.macroList.selection = nil
+      $0.macroEditor = nil
     }
   }
 

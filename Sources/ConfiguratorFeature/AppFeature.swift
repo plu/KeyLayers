@@ -17,6 +17,8 @@ public struct AppFeature: Sendable {
     public var macroList: MacroListFeature.State
     /// The selected keymap's editor; `nil` when nothing is selected.
     public var editor: KeymapEditorFeature.State?
+    /// The selected macro's editor; `nil` when no macro is selected.
+    public var macroEditor: MacroEditorFeature.State?
     public var status: StatusFeature.State
     @Presents public var settings: SettingsFeature.State?
     public var importExport: ImportExportFeature.State
@@ -31,9 +33,16 @@ public struct AppFeature: Sendable {
       self.keymapList = keymapList
       self.macroList = macroList
       editor = keymapList.selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
+      macroEditor = macroList.selection.flatMap { id in
+        macroList.configuration.macros[id: id] != nil ? MacroEditorFeature.State(macroID: id) : nil
+      }
       self.status = status
       self.settings = settings
       self.importExport = importExport
+      // A selected macro that doesn't exist isn't shown.
+      if macroEditor == nil {
+        self.macroList.selection = nil
+      }
     }
 
     public var isReadOnly: Bool {
@@ -50,6 +59,7 @@ public struct AppFeature: Sendable {
     case keymapList(KeymapListFeature.Action)
     case macroList(MacroListFeature.Action)
     case editor(KeymapEditorFeature.Action)
+    case macroEditor(MacroEditorFeature.Action)
     case status(StatusFeature.Action)
     case settingsButtonTapped
     case settings(PresentationAction<SettingsFeature.Action>)
@@ -70,6 +80,7 @@ public struct AppFeature: Sendable {
         // A keymap and a macro are never selected together.
         if selection != nil {
           state.macroList.selection = nil
+          state.macroEditor = nil
         }
         return .none
       }
@@ -82,6 +93,13 @@ public struct AppFeature: Sendable {
         if selection != nil {
           state.keymapList.selection = nil
           state.editor = nil
+        }
+        // A selection whose macro is gone shows nothing rather than a stale editor.
+        if let selection, state.configuration.macros[id: selection] != nil {
+          state.macroEditor = MacroEditorFeature.State(macroID: selection)
+        } else {
+          state.macroList.selection = nil
+          state.macroEditor = nil
         }
         return .none
       }
@@ -126,12 +144,20 @@ public struct AppFeature: Sendable {
         // Through the list, so the editor follows the selection.
         return .send(.keymapList(.binding(.set(\.selection, id))))
 
-      case .keymapList, .macroList, .editor, .status, .settings, .importExport:
+      case .macroEditor(.delegate(.macroRemoved)):
+        state.macroList.selection = nil
+        state.macroEditor = nil
+        return .none
+
+      case .keymapList, .macroList, .editor, .macroEditor, .status, .settings, .importExport:
         return .none
       }
     }
     .ifLet(\.editor, action: \.editor) {
       KeymapEditorFeature()
+    }
+    .ifLet(\.macroEditor, action: \.macroEditor) {
+      MacroEditorFeature()
     }
     .ifLet(\.$settings, action: \.settings) {
       SettingsFeature()

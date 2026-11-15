@@ -180,7 +180,7 @@ private struct KeypressTab: View {
           }
           Section("Modifier while held") {
             ForEach(Modifier.allCases, id: \.self) { modifier in
-              Button(Self.name(modifier)) { setSecondaryRole(.modifier(modifier)) }
+              Button(ModifierToggles.name(modifier)) { setSecondaryRole(.modifier(modifier)) }
                 .accessibilityIdentifier("secondary.modifier.\(modifier.rawValue)")
             }
           }
@@ -200,7 +200,7 @@ private struct KeypressTab: View {
     switch store.keypress.secondaryRole {
     case nil: "None"
     case let .layer(layer): "\(layer.displayName) layer"
-    case let .modifier(modifier): Self.name(modifier)
+    case let .modifier(modifier): ModifierToggles.name(modifier)
     }
   }
 
@@ -219,142 +219,23 @@ private struct KeypressTab: View {
   }
 
   private var results: some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        VStack(spacing: 0) {
-          let results = store.searchResults
-          ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
-            if let group = result.group, index == 0 || results[index - 1].group != group {
-              Text(group)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-            }
-            row(result)
-          }
-        }
-      }
-      .frame(maxHeight: .infinity)
-      .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
-      .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
-      .onAppear {
-        if let key = store.keypress.key {
-          proxy.scrollTo(key, anchor: .center)
-        }
-      }
-    }
-  }
-
-  private func row(_ result: KeySearchResult) -> some View {
-    let isSelected = result.key == store.keypress.key
-    return Button {
+    KeyPickerList(
+      results: store.searchResults,
+      selection: store.keypress.key,
+      identifierPrefix: "popover.keypress"
+    ) { key in
       var keypress = store.keypress
-      keypress.key = isSelected ? nil : result.key
+      keypress.key = key
       store.keypress = keypress
-    } label: {
-      HStack(spacing: 8) {
-        Text(result.label)
-          .font(.body.weight(.medium))
-          .frame(minWidth: 44, alignment: .leading)
-        if let name = result.name, name != result.label {
-          Text(name)
-            .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.secondary))
-        }
-        Spacer(minLength: 0)
-      }
-      .lineLimit(1)
-      .foregroundStyle(isSelected ? Color.white : Color.primary)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 3)
-      .background(isSelected ? Color(nsColor: .selectedContentBackgroundColor) : Color.clear)
-      .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
-    .id(result.key)
-    .accessibilityLabel(result.accessibilityLabel)
-    .accessibilityAddTraits(isSelected ? .isSelected : [])
-    .accessibilityIdentifier("popover.keypress.result.\(result.key)")
   }
 
   private var modifiers: some View {
-    Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
-      GridRow {
-        Text("Left")
-          .foregroundStyle(.secondary)
-        ForEach(Self.left, id: \.self, content: toggle)
-      }
-      GridRow {
-        Text("Right")
-          .foregroundStyle(.secondary)
-        ForEach(Self.right, id: \.self, content: toggle)
-      }
-    }
-    .font(.callout)
-  }
-
-  private func toggle(_ modifier: Modifier) -> some View {
-    Toggle(isOn: Binding(
-      get: { store.keypress.modifiers.contains(Modifiers(modifier)) },
-      set: { isOn in
-        var keypress = store.keypress
-        if isOn {
-          keypress.modifiers.insert(Modifiers(modifier))
-        } else {
-          keypress.modifiers.remove(Modifiers(modifier))
-        }
-        store.keypress = keypress
-      }
-    )) {
-      Text("\(Self.symbol(modifier)) \(Self.shortName(modifier))")
-        .frame(minWidth: 52)
-    }
-    .toggleStyle(.button)
-    .disabled(!store.modifiersEnabled)
-    .help(store.modifiersEnabled ? Self.name(modifier) : "Media keys are sent without modifiers")
-    .accessibilityLabel(Self.name(modifier))
-    .accessibilityIdentifier("popover.keypress.modifier.\(modifier.rawValue)")
-  }
-
-  /// Mac order: Control, Option, Shift, Command.
-  private static let left: [Modifier] = [.leftControl, .leftOption, .leftShift, .leftCommand]
-  private static let right: [Modifier] = [.rightControl, .rightOption, .rightShift, .rightCommand]
-
-  private static func symbol(_ modifier: Modifier) -> String {
-    switch modifier {
-    case .leftControl, .rightControl: "⌃"
-    case .leftOption, .rightOption: "⌥"
-    case .leftShift, .rightShift: "⇧"
-    case .leftCommand, .rightCommand: "⌘"
-    }
-  }
-
-  private static func shortName(_ modifier: Modifier) -> String {
-    switch modifier {
-    case .leftControl, .rightControl: "ctrl"
-    case .leftOption, .rightOption: "opt"
-    case .leftShift, .rightShift: "shift"
-    case .leftCommand, .rightCommand: "cmd"
-    }
-  }
-
-  static func name(_ modifier: Modifier) -> String {
-    KeyNames.name(for: modifier.keyID) ?? modifier.rawValue
-  }
-}
-
-/// Bordered, or prominent red while recording.
-private struct RecordButtonStyle: PrimitiveButtonStyle {
-  let isRecording: Bool
-
-  func makeBody(configuration: PrimitiveButtonStyleConfiguration) -> some View {
-    if isRecording {
-      Button(configuration).buttonStyle(.borderedProminent).tint(.red)
-    } else {
-      Button(configuration).buttonStyle(.bordered)
-    }
+    ModifierToggles(
+      modifiers: $store.keypress.modifiers,
+      isEnabled: store.modifiersEnabled,
+      identifierPrefix: "popover.keypress"
+    )
   }
 }
 
