@@ -118,6 +118,7 @@ let project = Project(
     unitTests("KeyboardLayout", deps: [.target(name: "KeymapModel"), .target(name: "KeyIO")]),
     framework("HelperFeature", deps: [
       .target(name: "KeymapModel"),
+      .target(name: "KeyboardLayout"),
       .target(name: "RemapEngine"),
       .target(name: "KeyIO"),
       .target(name: "InputDaemonIPC"),
@@ -129,12 +130,14 @@ let project = Project(
     ]),
     unitTests("HelperFeature", deps: [
       .target(name: "KeymapModel"),
+      .target(name: "KeyboardLayout"),
       .target(name: "RemapEngine"),
       .target(name: "KeyIO"),
       .target(name: "InputDaemonIPC"),
       .target(name: "HelperIPC"),
       .target(name: "SharedConfig"),
       .external(name: "ComposableArchitecture"),
+      .external(name: "Clocks"),
       .external(name: "IdentifiedCollections"),
     ]),
     .target(
