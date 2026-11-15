@@ -2,7 +2,7 @@ import ComposableArchitecture
 import KeymapModel
 import SwiftUI
 
-/// The sidebar: keymaps plus add / duplicate / delete / set default.
+/// The sidebar's keymaps section: a header with a "+" button, then one row per keymap.
 public struct KeymapListView: View {
   @Bindable var store: StoreOf<KeymapListFeature>
 
@@ -11,92 +11,34 @@ public struct KeymapListView: View {
   }
 
   public var body: some View {
-    VStack(spacing: 0) {
-      // Plain rows rather than `List`: `List` rows are drawn lazily and don't appear in snapshots.
-      ScrollView {
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Keymaps")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.bottom, 4)
-          ForEach(store.configuration.keymaps) { keymap in
-            KeymapRow(
-              keymap: keymap,
-              isDefault: keymap.id == store.configuration.defaultKeymapID,
-              isSelected: keymap.id == store.selection
-            ) {
-              store.selection = keymap.id
-            }
-            .accessibilityIdentifier("keymap.row.\(keymap.abbreviation)")
-          }
-        }
-        .padding(10)
-      }
-      Divider()
-      toolbar
-    }
-    .alert($store.scope(state: \.alert, action: \.alert))
-  }
-
-  private var toolbar: some View {
-    HStack(spacing: 2) {
-      button("Add Keymap", systemImage: "plus", identifier: "keymap.add", enabled: !store.isReadOnly) {
+    // Plain rows rather than `List`: `List` rows are drawn lazily and don't appear in snapshots.
+    VStack(alignment: .leading, spacing: 2) {
+      SidebarSectionHeader(
+        title: "Keymaps",
+        addLabel: "Add Keymap",
+        addIdentifier: "keymap.add",
+        isDisabled: store.isReadOnly
+      ) {
         store.send(.addTapped)
       }
-      button(
-        "Duplicate Keymap",
-        systemImage: "plus.square.on.square",
-        identifier: "keymap.duplicate",
-        enabled: !store.isReadOnly && store.selection != nil
-      ) {
-        if let id = store.selection {
-          store.send(.duplicateTapped(id))
+      ForEach(store.configuration.keymaps) { keymap in
+        let isDefault = keymap.id == store.configuration.defaultKeymapID
+        KeymapRow(keymap: keymap, isDefault: isDefault, isSelected: keymap.id == store.selection) {
+          store.selection = keymap.id
         }
-      }
-      button(
-        "Delete Keymap",
-        systemImage: "minus",
-        identifier: "keymap.delete",
-        enabled: store.canDelete && store.selection != nil
-      ) {
-        if let id = store.selection {
-          store.send(.deleteTapped(id))
+        .contextMenu {
+          Button("Duplicate") { store.send(.duplicateTapped(keymap.id)) }
+            .disabled(store.isReadOnly)
+          Button("Set as Default") { store.send(.setDefaultTapped(keymap.id)) }
+            .disabled(store.isReadOnly || isDefault)
+          Button("Delete…", role: .destructive) { store.send(.deleteTapped(keymap.id)) }
+            .disabled(!store.canDelete)
         }
-      }
-      Spacer()
-      button(
-        "Set as Default",
-        systemImage: "star",
-        identifier: "keymap.setDefault",
-        enabled: !store.isReadOnly && store.selection != nil
-          && store.selection != store.configuration.defaultKeymapID
-      ) {
-        if let id = store.selection {
-          store.send(.setDefaultTapped(id))
-        }
+        .accessibilityIdentifier("keymap.row.\(keymap.abbreviation)")
       }
     }
-    .buttonStyle(.borderless)
-    .padding(.horizontal, 8)
-    .padding(.vertical, 6)
-  }
-
-  private func button(
-    _ title: String,
-    systemImage: String,
-    identifier: String,
-    enabled: Bool,
-    action: @escaping () -> Void
-  ) -> some View {
-    Button(action: action) {
-      Image(systemName: systemImage)
-        .frame(width: 22, height: 18)
-    }
-    .help(title)
-    .accessibilityLabel(title)
-    .accessibilityIdentifier(identifier)
-    .disabled(!enabled)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .alert($store.scope(state: \.alert, action: \.alert))
   }
 }
 

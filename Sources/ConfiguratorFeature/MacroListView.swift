@@ -13,25 +13,14 @@ public struct MacroListView: View {
   public var body: some View {
     // Plain rows rather than `List`: `List` rows are drawn lazily and don't appear in snapshots.
     VStack(alignment: .leading, spacing: 2) {
-      HStack {
-        Text("Macros")
-          .font(.subheadline.weight(.semibold))
-          .foregroundStyle(.secondary)
-        Spacer()
-        Button {
-          store.send(.addTapped)
-        } label: {
-          Image(systemName: "plus")
-            .frame(width: 22, height: 18)
-        }
-        .buttonStyle(.borderless)
-        .help("Add Macro")
-        .accessibilityLabel("Add Macro")
-        .accessibilityIdentifier("macros.add")
-        .disabled(store.isReadOnly)
+      SidebarSectionHeader(
+        title: "Macros",
+        addLabel: "Add Macro",
+        addIdentifier: "macros.add",
+        isDisabled: store.isReadOnly
+      ) {
+        store.send(.addTapped)
       }
-      .padding(.horizontal, 8)
-      .padding(.bottom, 4)
       ForEach(store.configuration.macros) { macro in
         MacroRow(macro: macro, isSelected: macro.id == store.selection) {
           store.selection = macro.id
@@ -39,13 +28,12 @@ public struct MacroListView: View {
         .contextMenu {
           Button("Duplicate") { store.send(.duplicateTapped(macro.id)) }
             .disabled(store.isReadOnly)
-          Button("Delete", role: .destructive) { store.send(.deleteTapped(macro.id)) }
+          Button("Delete…", role: .destructive) { store.send(.deleteTapped(macro.id)) }
             .disabled(store.isReadOnly)
         }
         .accessibilityIdentifier("macros.row.\(macro.name)")
       }
     }
-    .padding(10)
     .frame(maxWidth: .infinity, alignment: .leading)
     .alert($store.scope(state: \.alert, action: \.alert))
   }

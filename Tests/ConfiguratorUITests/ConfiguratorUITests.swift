@@ -108,7 +108,10 @@ final class ConfiguratorUITests: XCTestCase {
     click("keymap.add")
     let added = element("keymap.row.NEW")
     XCTAssertTrue(added.waitForExistence(timeout: 5))
-    click("keymap.delete")
+    added.rightClick()
+    let deleteItem = app.menuItems["Delete…"]
+    XCTAssertTrue(deleteItem.waitForExistence(timeout: 5), "No Delete… in the row's context menu")
+    deleteItem.click()
     let confirm = app.buttons["Delete"].firstMatch
     XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No delete confirmation")
     confirm.click()
@@ -222,7 +225,7 @@ final class ConfiguratorUITests: XCTestCase {
 
   private func waitFor(_ element: XCUIElement, containing expected: String, timeout: TimeInterval = 5) -> Bool {
     waitUntil(timeout: timeout) { self.text(of: element).contains(expected) }
-  } 
+  }
 
   private func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
     waitUntil(timeout: timeout) { !element.exists }

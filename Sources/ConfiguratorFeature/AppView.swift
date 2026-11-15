@@ -10,15 +10,31 @@ public struct AppView: View {
     self.store = store
   }
 
+  /// Finder-style: the keymaps and macros sections stacked from the top, empty space below.
+  private var sidebar: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 14) {
+        KeymapListView(store: store.scope(state: \.keymapList, action: \.keymapList))
+        MacroListView(store: store.scope(state: \.macroList, action: \.macroList))
+      }
+      .padding(10)
+    }
+    .focusable()
+    .focusEffectDisabled()
+    .onDeleteCommand {
+      if let id = store.keymapList.selection {
+        store.send(.keymapList(.deleteTapped(id)))
+      } else if let id = store.macroList.selection, !store.macroList.isReadOnly {
+        store.send(.macroList(.deleteTapped(id)))
+      }
+    }
+  }
+
   public var body: some View {
     // A plain split (not NavigationSplitView): its translucent sidebar doesn't render in snapshots.
     HStack(spacing: 0) {
-      VStack(spacing: 0) {
-        KeymapListView(store: store.scope(state: \.keymapList, action: \.keymapList))
-        Divider()
-        MacroListView(store: store.scope(state: \.macroList, action: \.macroList))
-      }
-      .frame(width: 230)
+      sidebar
+        .frame(width: 230)
       Divider()
       VStack(spacing: 0) {
         if let message = store.loadErrorMessage {
