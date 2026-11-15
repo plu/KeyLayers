@@ -267,13 +267,25 @@ extension MacroStepKind {
   }
 }
 
+extension KeyStep {
+  /// False for a media key, which is sent without modifiers, so the toggles are disabled.
+  var modifiersEnabled: Bool {
+    !(key.map(KeyID.mediaKeys.contains) ?? false)
+  }
+}
+
 private extension MacroStep {
-  /// A delay never waits a negative time.
+  /// A delay waits 0…60 000 ms, as playback clamps it; a media key has no modifiers.
   var normalized: MacroStep {
-    if case let .delay(milliseconds) = self, milliseconds < 0 {
-      return .delay(milliseconds: 0)
+    switch self {
+    case let .delay(milliseconds):
+      return .delay(milliseconds: min(max(milliseconds, 0), 60000))
+    case var .key(step) where !step.modifiersEnabled:
+      step.modifiers = []
+      return .key(step)
+    default:
+      return self
     }
-    return self
   }
 }
 

@@ -215,6 +215,7 @@ private struct KeyStepEditor: View {
       }
       ModifierToggles(
         modifiers: Binding(get: { step.modifiers }, set: { modifiers in write { $0.modifiers = modifiers } }),
+        isEnabled: step.modifiersEnabled,
         identifierPrefix: "macro.step.\(index)"
       )
       .controlSize(.small)
@@ -263,10 +264,13 @@ private struct TextStepEditor: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
+      // Multi-line, so that the text can hold Return and Tab (typed as ⌥↩ and ⌥⇥, or pasted).
       TextField(
         "Text to type",
-        text: Binding(get: { text }, set: { store.send(.stepChanged(index, .text($0))) })
+        text: Binding(get: { text }, set: { store.send(.stepChanged(index, .text($0))) }),
+        axis: .vertical
       )
+      .lineLimit(1 ... 6)
       .textFieldStyle(.roundedBorder)
       .accessibilityIdentifier("macro.step.\(index).text")
       let untypeable = store.untypeable[index] ?? []

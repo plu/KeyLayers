@@ -83,6 +83,31 @@ struct MacroEditorFeatureTests {
     ])
   }
 
+  @Test func delayIsKeptWithinTheMinute() async throws {
+    let fakes = try Fakes(file: configuration())
+    let store = makeStore(fakes)
+    // Playback never waits longer than 60 000 ms, so a longer delay isn't stored either.
+    await store.send(.stepChanged(1, .delay(milliseconds: 70000))) {
+      $0.$configuration.withLock { $0.macros[id: macroID]?.steps[1] = .delay(milliseconds: 60000) }
+    }
+    await store.send(.stepChanged(1, .delay(milliseconds: 60000)))
+  }
+
+  @Test func mediaKeyStepsHaveNoModifiers() async throws {
+    let fakes = try Fakes(file: configuration())
+    let store = makeStore(fakes)
+    // Media keys are sent without modifiers: choosing one clears them, as the key action editor does.
+    let media = KeyStep(key: .volumeUp, modifiers: Modifiers(.leftCommand), kind: .tap)
+    await store.send(.stepChanged(3, .key(media))) {
+      $0.$configuration.withLock {
+        $0.macros[id: macroID]?.steps[3] = .key(KeyStep(key: .volumeUp, modifiers: [], kind: .tap))
+      }
+    }
+    #expect(!KeyStep(key: .volumeUp, modifiers: [], kind: .tap).modifiersEnabled)
+    #expect(KeyStep(key: .a, modifiers: [], kind: .tap).modifiersEnabled)
+    #expect(KeyStep(key: nil, modifiers: [], kind: .tap).modifiersEnabled)
+  }
+
   @Test func deleteAndMoveReorderSteps() async throws {
     let fakes = try Fakes(file: configuration())
     let store = makeStore(fakes)
