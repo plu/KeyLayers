@@ -48,11 +48,12 @@ public enum KeyAction: Equatable, Hashable, Sendable, Codable {
   case switchLayer(LayerName, mode: LayerSwitchMode)
   case switchKeymap(Keymap.ID)
   case block
+  case macro(Macro.ID)
   /// An action type this version does not understand; preserved as `{"type": ...}`.
   case unsupported(type: String)
 
   private enum CodingKeys: String, CodingKey {
-    case type, key, modifiers, secondaryRole, layer, mode, keymapID
+    case type, key, modifiers, secondaryRole, layer, mode, keymapID, macroID
   }
 
   public init(from decoder: any Decoder) throws {
@@ -74,6 +75,8 @@ public enum KeyAction: Equatable, Hashable, Sendable, Codable {
       self = try .switchKeymap(c.decode(Keymap.ID.self, forKey: .keymapID))
     case "block":
       self = .block
+    case "macro":
+      self = try .macro(c.decode(Macro.ID.self, forKey: .macroID))
     default:
       self = .unsupported(type: type)
     }
@@ -96,6 +99,9 @@ public enum KeyAction: Equatable, Hashable, Sendable, Codable {
       try c.encode(id, forKey: .keymapID)
     case .block:
       try c.encode("block", forKey: .type)
+    case let .macro(id):
+      try c.encode("macro", forKey: .type)
+      try c.encode(id, forKey: .macroID)
     case let .unsupported(type):
       try c.encode(type, forKey: .type)
     }

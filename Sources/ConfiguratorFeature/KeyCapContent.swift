@@ -112,6 +112,10 @@ public struct KeyCapContent: Equatable, Sendable {
 
     case .unsupported:
       return KeyCapContent(primary: "?", style: .unsupported)
+
+    case .macro:
+      // Showing the macro's name comes with the macro editor.
+      return KeyCapContent(primary: "?", style: .unsupported)
     }
   }
 

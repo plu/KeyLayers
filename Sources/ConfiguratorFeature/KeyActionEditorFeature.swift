@@ -51,7 +51,7 @@ public struct KeyActionEditorFeature: Sendable {
       case .block:
         tab = .none
         noneIsBlock = true
-      case .unsupported, nil:
+      case .unsupported, .macro, nil:
         tab = .keypress
       }
       dropModifiersOfMediaKey()

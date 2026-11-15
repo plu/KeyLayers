@@ -46,17 +46,20 @@ public struct Configuration: Equatable, Sendable, Codable {
 
   public var formatVersion: Int
   public var settings: Settings
+  public var macros: IdentifiedArrayOf<Macro>
   public var keymaps: IdentifiedArrayOf<Keymap>
   public var defaultKeymapID: Keymap.ID
 
   public init(
     formatVersion: Int = Configuration.currentFormatVersion,
     settings: Settings = Settings(),
+    macros: IdentifiedArrayOf<Macro> = [],
     keymaps: IdentifiedArrayOf<Keymap>,
     defaultKeymapID: Keymap.ID
   ) {
     self.formatVersion = formatVersion
     self.settings = settings
+    self.macros = macros
     self.keymaps = keymaps
     self.defaultKeymapID = defaultKeymapID
   }
@@ -76,7 +79,7 @@ public struct Configuration: Equatable, Sendable, Codable {
   public static let decoder = JSONDecoder()
 
   private enum CodingKeys: String, CodingKey {
-    case formatVersion, settings, keymaps, defaultKeymapID
+    case formatVersion, settings, macros, keymaps, defaultKeymapID
   }
 
   public init(from decoder: any Decoder) throws {
@@ -87,6 +90,11 @@ public struct Configuration: Equatable, Sendable, Codable {
     }
     formatVersion = version
     settings = try c.decodeIfPresent(Settings.self, forKey: .settings) ?? Settings()
+    let macroList = try c.decodeIfPresent([Macro].self, forKey: .macros) ?? []
+    guard Set(macroList.map(\.id)).count == macroList.count else {
+      throw DecodingError.dataCorruptedError(forKey: .macros, in: c, debugDescription: "Duplicate macro IDs")
+    }
+    macros = IdentifiedArray(uniqueElements: macroList)
     let list = try c.decode([Keymap].self, forKey: .keymaps)
     guard !list.isEmpty else {
       throw DecodingError.dataCorruptedError(forKey: .keymaps, in: c, debugDescription: "No keymaps")
@@ -102,7 +110,31 @@ public struct Configuration: Equatable, Sendable, Codable {
     var c = encoder.container(keyedBy: CodingKeys.self)
     try c.encode(formatVersion, forKey: .formatVersion)
     try c.encode(settings, forKey: .settings)
+    try c.encode(Array(macros), forKey: .macros)
     try c.encode(Array(keymaps), forKey: .keymaps)
     try c.encode(defaultKeymapID, forKey: .defaultKeymapID)
+  }
+
+  // swiftlint:disable large_tuple
+  /// Every key bound to the macro, across all keymaps and layers.
+  public func keysUsing(_ id: Macro.ID) -> [(keymapID: Keymap.ID, layer: LayerName, key: KeyID)] {
+    var result: [(keymapID: Keymap.ID, layer: LayerName, key: KeyID)] = []
+    for keymap in keymaps {
+      for (layer, content) in keymap.layers {
+        for (key, action) in content.actions where action == .macro(id) {
+          result.append((keymap.id, layer, key))
+        }
+      }
+    }
+    return result
+  }
+  // swiftlint:enable large_tuple
+
+  /// Removes the macro and every key bound to it.
+  public mutating func removeMacro(_ id: Macro.ID) {
+    for use in keysUsing(id) {
+      keymaps[id: use.keymapID]?.setAction(nil, for: use.key, on: use.layer)
+    }
+    macros.remove(id: id)
   }
 }

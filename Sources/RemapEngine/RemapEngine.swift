@@ -198,7 +198,8 @@ public struct RemapEngine: Sendable {
         return (.pendingSecondaryRole, [])
       }
       return (resolve(keypress), [])
-    case .block, .unsupported:
+    // Macro playback is wired up in a later task; until then a macro key does nothing.
+    case .block, .unsupported, .macro:
       return (.block, [])
     case let .switchLayer(layer, mode):
       return (.block, applyLayerSwitch(layer, mode: mode, event: event))
