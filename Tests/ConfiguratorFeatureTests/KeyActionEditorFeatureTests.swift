@@ -53,12 +53,28 @@ struct KeyActionEditorFeatureTests {
     #expect(keymap.targetKeymap == codingID)
     #expect(keymap.keymaps == keymaps)
 
+    let macro = Macro(id: UUID(), name: "Sign off", steps: [])
+    let bound = Editor.State(key: .a, layer: .mod, action: .macro(macro.id), keymaps: [], macros: [macro])
+    #expect(bound.tab == .macro)
+    #expect(bound.targetMacro == macro.id)
+    #expect(bound.macros == [macro])
+
     let block = Editor.State(key: .a, layer: .mod, action: .block, keymaps: [])
     #expect(block.tab == .none)
     #expect(block.noneIsBlock)
 
     let unsupported = Editor.State(key: .a, layer: .mod, action: .unsupported(type: "playMacro"), keymaps: [])
     #expect(unsupported.tab == .keypress)
+  }
+
+  @Test func macroTabAppliesTargetMacro() {
+    let macro = Macro(id: UUID(), name: "Sign off", steps: [])
+    var state = Editor.State(key: .a, layer: .mod, action: .macro(macro.id), keymaps: [], macros: [macro])
+    #expect(state.canApply)
+    #expect(state.action == .macro(macro.id))
+    state.targetMacro = nil
+    #expect(!state.canApply)
+    #expect(state.action == nil)
   }
 
   // MARK: Apply

@@ -38,13 +38,14 @@ public struct KeyCapContent: Equatable, Sendable {
     layer: LayerName,
     keymap: Keymap,
     keymaps: IdentifiedArrayOf<Keymap>,
+    macros: IdentifiedArrayOf<Macro> = [],
     labels: [KeyID: String]
   ) -> KeyCapContent {
     if let action = keymap.action(for: key, on: layer) {
-      return make(action, keymaps: keymaps, labels: labels)
+      return make(action, keymaps: keymaps, macros: macros, labels: labels)
     }
     guard layer == .base else {
-      var content = make(key: key, layer: .base, keymap: keymap, keymaps: keymaps, labels: labels)
+      var content = make(key: key, layer: .base, keymap: keymap, keymaps: keymaps, macros: macros, labels: labels)
       content.style = .inherited
       return content
     }
@@ -90,6 +91,7 @@ public struct KeyCapContent: Equatable, Sendable {
   private static func make(
     _ action: KeyAction,
     keymaps: IdentifiedArrayOf<Keymap>,
+    macros: IdentifiedArrayOf<Macro>,
     labels: [KeyID: String]
   ) -> KeyCapContent {
     switch action {
@@ -113,9 +115,10 @@ public struct KeyCapContent: Equatable, Sendable {
     case .unsupported:
       return KeyCapContent(primary: "?", style: .unsupported)
 
-    case .macro:
-      // Showing the macro's name comes with the macro editor.
-      return KeyCapContent(primary: "?", style: .unsupported)
+    case let .macro(id):
+      // The cap view shrinks and truncates a long name to fit.
+      guard let macro = macros[id: id] else { return KeyCapContent(primary: "?", style: .unsupported) }
+      return KeyCapContent(primary: macro.name, badge: "macro", style: .normal)
     }
   }
 

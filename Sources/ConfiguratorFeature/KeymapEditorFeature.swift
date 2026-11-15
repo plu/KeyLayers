@@ -158,7 +158,8 @@ public struct KeymapEditorFeature: Sendable {
           key: key,
           layer: state.layer,
           action: state.keymap.action(for: key, on: state.layer),
-          keymaps: state.configuration.keymaps.elements
+          keymaps: state.configuration.keymaps.elements,
+          macros: state.configuration.macros.elements
         )
         popover.labels = state.labels
         // While the configuration can't be loaded the popover only shows the action.

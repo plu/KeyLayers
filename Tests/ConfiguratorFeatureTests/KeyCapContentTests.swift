@@ -22,6 +22,7 @@ private func cap(
   key: KeyID = .a,
   layer: LayerName = .base,
   in keymap: Keymap = Keymap(id: UUID(), name: "Test", abbreviation: "TST"),
+  macros: IdentifiedArrayOf<Macro> = [],
   labels: [KeyID: String] = StaticKeyLabels.usANSI
 ) -> KeyCapContent {
   var keymap = keymap
@@ -33,6 +34,7 @@ private func cap(
     layer: layer,
     keymap: keymap,
     keymaps: IdentifiedArray([keymap, starter], uniquingIDsWith: { first, _ in first }),
+    macros: macros,
     labels: labels
   )
 }
@@ -82,6 +84,19 @@ struct KeyCapContentTests {
 
   @Test func danglingKeymapActionShowsUnsupported() {
     let content = cap(.switchKeymap(UUID()))
+    #expect(content.primary == "?")
+    #expect(content.style == .unsupported)
+  }
+
+  @Test func macroCapShowsName() {
+    let macro = Macro(id: UUID(), name: "Sign off", steps: [])
+    #expect(cap(.macro(macro.id), macros: [macro]) == KeyCapContent(
+      primary: "Sign off", badge: "macro", style: .normal
+    ))
+  }
+
+  @Test func danglingMacroActionShowsUnsupported() {
+    let content = cap(.macro(UUID()))
     #expect(content.primary == "?")
     #expect(content.style == .unsupported)
   }

@@ -21,6 +21,7 @@ public struct KeymapEditorView: View {
         keymap: store.keymap,
         layer: store.layer,
         keymaps: store.configuration.keymaps,
+        macros: store.configuration.macros,
         labels: store.labels,
         keyAction: $store.scope(state: \.keyAction, action: \.keyAction)
       ) { key in

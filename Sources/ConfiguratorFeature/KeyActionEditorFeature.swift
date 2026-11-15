@@ -3,7 +3,7 @@ import Foundation
 import HelperIPC
 import KeymapModel
 
-/// The key action popover: chooses what one key does on one layer (Keypress, Layer, Keymap or
+/// The key action popover: chooses what one key does on one layer (Keypress, Layer, Keymap, Macro or
 /// None), as in UHK Agent. The editor that presents it writes the result.
 @Reducer
 public struct KeyActionEditorFeature: Sendable {
@@ -11,7 +11,7 @@ public struct KeyActionEditorFeature: Sendable {
   public struct State: Equatable {
     // swiftlint:disable:next nesting
     public enum Tab: String, CaseIterable, Sendable {
-      case keypress, layer, keymap, none
+      case keypress, layer, keymap, macro, none
     }
 
     public let key: KeyID
@@ -23,9 +23,12 @@ public struct KeyActionEditorFeature: Sendable {
     public var targetLayer: LayerName = .mod
     public var layerMode: LayerSwitchMode = .holdAndDoubleTapToggle
     public var targetKeymap: Keymap.ID?
+    public var targetMacro: Macro.ID?
     public var noneIsBlock = false
     /// For the Keymap tab's picker.
     public var keymaps: [Keymap]
+    /// For the Macro tab's picker.
+    public var macros: [Macro]
     /// Key labels of the current input source, for the key picker.
     public var labels: [KeyID: String] = [:]
     /// The configuration couldn't be loaded: the popover shows the action but can't apply.
@@ -33,10 +36,11 @@ public struct KeyActionEditorFeature: Sendable {
 
     /// Opens on the tab of `action`, prefilled with it; with no action (or one this version
     /// doesn't support) on the Keypress tab.
-    public init(key: KeyID, layer: LayerName, action: KeyAction?, keymaps: [Keymap]) {
+    public init(key: KeyID, layer: LayerName, action: KeyAction?, keymaps: [Keymap], macros: [Macro] = []) {
       self.key = key
       self.layer = layer
       self.keymaps = keymaps
+      self.macros = macros
       switch action {
       case let .keypress(keypress):
         tab = .keypress
@@ -51,7 +55,10 @@ public struct KeyActionEditorFeature: Sendable {
       case .block:
         tab = .none
         noneIsBlock = true
-      case .unsupported, .macro, nil:
+      case let .macro(id):
+        tab = .macro
+        targetMacro = id
+      case .unsupported, nil:
         tab = .keypress
       }
       dropModifiersOfMediaKey()
@@ -70,13 +77,14 @@ public struct KeyActionEditorFeature: Sendable {
       }
     }
 
-    /// False while read-only, for a keypress with neither key nor modifiers, and for the Keymap
-    /// tab without a target.
+    /// False while read-only, for a keypress with neither key nor modifiers, and for the Keymap and
+    /// Macro tabs without a target.
     public var canApply: Bool {
       guard !isReadOnly else { return false }
       switch tab {
       case .keypress: return keypress.key != nil || !keypress.modifiers.isEmpty
       case .keymap: return targetKeymap != nil
+      case .macro: return targetMacro != nil
       case .layer, .none: return true
       }
     }
@@ -87,6 +95,7 @@ public struct KeyActionEditorFeature: Sendable {
       case .keypress: .keypress(keypress)
       case .layer: .switchLayer(targetLayer, mode: layerMode)
       case .keymap: targetKeymap.map(KeyAction.switchKeymap)
+      case .macro: targetMacro.map(KeyAction.macro)
       case .none: noneIsBlock ? .block : nil
       }
     }

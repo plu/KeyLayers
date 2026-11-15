@@ -3,7 +3,7 @@ import KeyboardLayout
 import KeymapModel
 import SwiftUI
 
-/// The key action popover: a header with a preview cap, the Keypress / Layer / Keymap / None tabs
+/// The key action popover: a header with a preview cap, the Keypress / Layer / Keymap / Macro / None tabs
 /// and Apply / Cancel.
 public struct KeyActionEditorView: View {
   @Bindable var store: StoreOf<KeyActionEditorFeature>
@@ -21,6 +21,7 @@ public struct KeyActionEditorView: View {
         case .keypress: KeypressTab(store: store)
         case .layer: layerTab
         case .keymap: keymapTab
+        case .macro: macroTab
         case .none: noneTab
         }
       }
@@ -57,6 +58,7 @@ public struct KeyActionEditorView: View {
       layer: store.layer,
       keymap: keymap,
       keymaps: IdentifiedArray(uniqueElements: store.keymaps),
+      macros: IdentifiedArray(uniqueElements: store.macros),
       labels: store.labels
     )
   }
@@ -92,6 +94,25 @@ public struct KeyActionEditorView: View {
       }
       .accessibilityIdentifier("popover.keymap.target")
       Text("Pressing the key makes this keymap active.")
+        .font(.callout)
+        .foregroundStyle(.secondary)
+    }
+  }
+
+  private var macroTab: some View {
+    Form {
+      Picker("Play", selection: $store.targetMacro) {
+        Text("Choose a macro").tag(Macro.ID?.none)
+        ForEach(store.macros) { macro in
+          Text(macro.name).tag(Macro.ID?.some(macro.id))
+        }
+        if let target = store.targetMacro, !store.macros.contains(where: { $0.id == target }) {
+          Text("Deleted macro").tag(Macro.ID?.some(target))
+        }
+      }
+      .disabled(store.macros.isEmpty)
+      .accessibilityIdentifier("popover.macro.target")
+      Text(store.macros.isEmpty ? "Create a macro in the sidebar first." : "Pressing the key plays this macro.")
         .font(.callout)
         .foregroundStyle(.secondary)
     }
@@ -239,7 +260,7 @@ private struct KeypressTab: View {
   }
 }
 
-/// Segmented buttons for the four tabs (a `Picker` doesn't expose per-segment identifiers).
+/// Segmented buttons for the five tabs (a `Picker` doesn't expose per-segment identifiers).
 private struct TabSelector: View {
   @Binding var selection: KeyActionEditorFeature.State.Tab
 
@@ -276,6 +297,7 @@ private struct TabSelector: View {
     case .keypress: "Keypress"
     case .layer: "Layer"
     case .keymap: "Keymap"
+    case .macro: "Macro"
     case .none: "None"
     }
   }

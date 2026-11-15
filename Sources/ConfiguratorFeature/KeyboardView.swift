@@ -11,6 +11,8 @@ struct KeyboardView: View {
   let layer: LayerName
   /// For Switch Keymap actions' abbreviations.
   let keymaps: IdentifiedArrayOf<Keymap>
+  /// For macro actions' names.
+  var macros: IdentifiedArrayOf<Macro> = []
   let labels: [KeyID: String]
   /// The key action popover, shown on the cap of the key it edits.
   var keyAction: Binding<StoreOf<KeyActionEditorFeature>?> = .constant(nil)
@@ -51,7 +53,9 @@ struct KeyboardView: View {
     )
     Group {
       if let id = key.keyID {
-        let content = KeyCapContent.make(key: id, layer: layer, keymap: keymap, keymaps: keymaps, labels: labels)
+        let content = KeyCapContent.make(
+          key: id, layer: layer, keymap: keymap, keymaps: keymaps, macros: macros, labels: labels
+        )
         Button {
           keyTapped(id)
         } label: {
