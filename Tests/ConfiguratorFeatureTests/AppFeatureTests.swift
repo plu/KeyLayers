@@ -130,6 +130,8 @@ struct AppFeatureTests {
     #expect(store.state.settings?.isReadOnly == true)
     await store.send(\.settings.doubleTapTimeoutChanged, 500)
     await store.send(\.settings.showLayerHUDChanged, false)
+    await store.send(\.settings.menuBarShowsKeymapChanged, true)
+    await store.send(\.settings.menuBarShowsLayerChanged, true)
 
     // The rest of the app still works.
     let task = await store.send(.task)

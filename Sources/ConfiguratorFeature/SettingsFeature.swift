@@ -3,7 +3,7 @@ import Foundation
 import KeymapModel
 import SharedConfig
 
-/// Settings: double-tap timeout, layer HUD, launch helper at login.
+/// Settings: double-tap timeout, layer HUD, menu bar text, launch helper at login.
 ///
 /// Configuration fields change through explicit actions (not bindings) so the read-only guard
 /// runs before anything is written.
@@ -26,6 +26,8 @@ public struct SettingsFeature: Sendable {
   public enum Action: Sendable {
     case doubleTapTimeoutChanged(Int)
     case showLayerHUDChanged(Bool)
+    case menuBarShowsKeymapChanged(Bool)
+    case menuBarShowsLayerChanged(Bool)
     case launchAtLoginChanged(Bool)
     case registrationFailed(String)
     case doneTapped
@@ -59,6 +61,16 @@ public struct SettingsFeature: Sendable {
       case let .showLayerHUDChanged(isOn):
         guard !state.isReadOnly, isOn != state.configuration.settings.showLayerHUD else { return .none }
         state.$configuration.withLock { $0.settings.showLayerHUD = isOn }
+        return .none
+
+      case let .menuBarShowsKeymapChanged(isOn):
+        guard !state.isReadOnly, isOn != state.configuration.settings.menuBarShowsKeymap else { return .none }
+        state.$configuration.withLock { $0.settings.menuBarShowsKeymap = isOn }
+        return .none
+
+      case let .menuBarShowsLayerChanged(isOn):
+        guard !state.isReadOnly, isOn != state.configuration.settings.menuBarShowsLayer else { return .none }
+        state.$configuration.withLock { $0.settings.menuBarShowsLayer = isOn }
         return .none
 
       case let .launchAtLoginChanged(isOn):

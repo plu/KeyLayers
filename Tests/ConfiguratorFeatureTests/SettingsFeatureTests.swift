@@ -42,6 +42,20 @@ struct SettingsFeatureTests {
     #expect(try fakes.savedConfiguration()?.settings.showLayerHUD == false)
   }
 
+  @Test func menuBarTogglesAreSaved() async throws {
+    let fakes = try Fakes()
+    let store = makeStore(fakes)
+
+    await store.send(.menuBarShowsKeymapChanged(true)) {
+      $0.$configuration.withLock { $0.settings.menuBarShowsKeymap = true }
+    }
+    await store.send(.menuBarShowsLayerChanged(true)) {
+      $0.$configuration.withLock { $0.settings.menuBarShowsLayer = true }
+    }
+    let saved = try fakes.savedConfiguration()?.settings
+    #expect(saved?.menuBarShowsKeymap == true && saved?.menuBarShowsLayer == true)
+  }
+
   @Test func turningOffLaunchAtLoginUnregistersHelper() async throws {
     let fakes = try Fakes()
     fakes.registrationStatus.setValue(.enabled)

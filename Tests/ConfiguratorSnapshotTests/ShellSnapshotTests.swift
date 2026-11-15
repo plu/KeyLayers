@@ -75,13 +75,13 @@ struct ShellSnapshotTests {
 
   @Test func settings() throws {
     let store = try makeStore(SettingsFeature(), dependencies: fixedDependencies()) { SettingsFeature.State() }
-    assertBothAppearances(SettingsView(store: store), size: CGSize(width: 460, height: 320))
+    assertBothAppearances(SettingsView(store: store), size: CGSize(width: 460, height: 430))
   }
 
   @Test func settingsReadOnly() throws {
     let store = try makeStore(SettingsFeature(), dependencies: fixedDependencies(fileData: Data("{".utf8))) {
       SettingsFeature.State()
     }
-    assertBothAppearances(SettingsView(store: store), size: CGSize(width: 460, height: 320))
+    assertBothAppearances(SettingsView(store: store), size: CGSize(width: 460, height: 430))
   }
 }

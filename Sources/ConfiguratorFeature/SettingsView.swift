@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import SwiftUI
 
-/// Settings sheet: double-tap timeout, layer HUD, launch helper at login.
+/// Settings sheet: double-tap timeout, layer HUD, menu bar text, launch helper at login.
 public struct SettingsView: View {
   let store: StoreOf<SettingsFeature>
 
@@ -52,6 +52,30 @@ public struct SettingsView: View {
 
         Section {
           Toggle(
+            "Show keymap",
+            isOn: Binding(
+              get: { store.configuration.settings.menuBarShowsKeymap },
+              set: { store.send(.menuBarShowsKeymapChanged($0)) }
+            )
+          )
+          .accessibilityIdentifier("settings.menuBarKeymap")
+          .disabled(store.isReadOnly)
+
+          Toggle(
+            "Show layer",
+            isOn: Binding(
+              get: { store.configuration.settings.menuBarShowsLayer },
+              set: { store.send(.menuBarShowsLayerChanged($0)) }
+            )
+          )
+          .accessibilityIdentifier("settings.menuBarLayer")
+          .disabled(store.isReadOnly)
+        } header: {
+          Text("Menu Bar")
+        }
+
+        Section {
+          Toggle(
             "Launch the helper at login",
             isOn: Binding(
               get: { store.launchAtLogin },
@@ -77,6 +101,6 @@ public struct SettingsView: View {
       }
       .padding([.horizontal, .bottom], 20)
     }
-    .frame(width: 460, height: 320)
+    .frame(width: 460, height: 430)
   }
 }
