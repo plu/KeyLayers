@@ -5,6 +5,8 @@ import SwiftUI
 /// The configurator window.
 public struct AppView: View {
   @Bindable var store: StoreOf<AppFeature>
+  /// The sidebar has focus, so ⌫ acts on its selected keymap or macro (and not on a macro step).
+  @FocusState private var sidebarFocused: Bool
 
   public init(store: StoreOf<AppFeature>) {
     self.store = store
@@ -21,6 +23,20 @@ public struct AppView: View {
     }
     .focusable()
     .focusEffectDisabled()
+    .focused($sidebarFocused)
+    // Rows are buttons, which don't take focus: a click in the sidebar or a new selection gives it
+    // to the sidebar, away from the macro steps.
+    .simultaneousGesture(TapGesture().onEnded { sidebarFocused = true })
+    .onChange(of: store.keymapList.selection) { _, selection in
+      if selection != nil {
+        sidebarFocused = true
+      }
+    }
+    .onChange(of: store.macroList.selection) { _, selection in
+      if selection != nil {
+        sidebarFocused = true
+      }
+    }
     .onDeleteCommand {
       if let id = store.keymapList.selection {
         store.send(.keymapList(.deleteTapped(id)))

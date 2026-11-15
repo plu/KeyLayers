@@ -6,6 +6,7 @@ import SwiftUI
 /// handle to reorder and deleted with their button or ⌫ once selected.
 public struct MacroEditorView: View {
   let store: StoreOf<MacroEditorFeature>
+  /// The highlighted step of the current macro, which ⌫ deletes while the steps have focus.
   @State private var selectedStep: Int?
   @FocusState private var stepsFocused: Bool
 
@@ -28,6 +29,14 @@ public struct MacroEditorView: View {
     }
     // Keyed by macro: switching macros keeps this view, and the new macro needs its own `.task`.
     .task(id: store.macroID) { await store.send(.task).finish() }
+    // The view survives a switch to another macro; its selection doesn't.
+    .onChange(of: store.macroID) { selectedStep = nil }
+    // Steps removed elsewhere: never point past the end.
+    .onChange(of: store.macro?.steps.count) { _, count in
+      if let selectedStep, selectedStep >= count ?? 0 {
+        self.selectedStep = nil
+      }
+    }
   }
 
   private var header: some View {
@@ -74,11 +83,13 @@ public struct MacroEditorView: View {
             store: store,
             index: index,
             step: step,
-            isSelected: selectedStep == index
-          ) {
-            selectedStep = index
-            stepsFocused = true
-          }
+            isSelected: selectedStep == index,
+            select: {
+              selectedStep = index
+              stepsFocused = true
+            },
+            delete: { deleteStep(index) }
+          )
           .dropDestination(for: String.self) { items, _ in
             guard let source = items.first.flatMap(Int.init), source != index else { return false }
             // `moveSteps` takes the position before which the step lands.
@@ -96,8 +107,18 @@ public struct MacroEditorView: View {
     .focused($stepsFocused)
     .onDeleteCommand {
       guard let selectedStep, !store.isReadOnly else { return }
-      store.send(.deleteStep(selectedStep))
-      self.selectedStep = nil
+      deleteStep(selectedStep)
+    }
+  }
+
+  /// Deletes the step at `index`; the selection stays on the step it was on, if that's still there.
+  private func deleteStep(_ index: Int) {
+    store.send(.deleteStep(index))
+    guard let selected = selectedStep else { return }
+    if selected == index {
+      selectedStep = nil
+    } else if selected > index {
+      selectedStep = selected - 1
     }
   }
 }
@@ -109,6 +130,7 @@ private struct MacroStepRow: View {
   let step: MacroStep
   let isSelected: Bool
   let select: () -> Void
+  let delete: () -> Void
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -128,9 +150,7 @@ private struct MacroStepRow: View {
       editor
         .disabled(store.isReadOnly)
         .frame(maxWidth: .infinity, alignment: .leading)
-      Button {
-        store.send(.deleteStep(index))
-      } label: {
+      Button(action: delete) {
         Image(systemName: "minus.circle")
       }
       .buttonStyle(.borderless)
