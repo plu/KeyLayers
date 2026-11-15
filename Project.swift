@@ -35,6 +35,9 @@ let appSigningSettings: SettingsDictionary = teamId.isEmpty
   ? ["CODE_SIGN_IDENTITY": "-"]
   : ["CODE_SIGN_IDENTITY": "Apple Development", "CODE_SIGN_STYLE": "Automatic"]
 
+/// Tuist's app defaults name an `AccentColor` asset; the apps have no asset catalog (only `AppIcon.icon`).
+let noAccentColor: SettingsDictionary = ["ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": ""]
+
 /// `com.apple.developer.hid.virtual.device` is restricted: it needs a provisioning profile, which an
 /// ad-hoc build (no team) can't have, and AMFI kills a process claiming it without one. Ad-hoc
 /// helpers go without it (no virtual keyboard, so remapping can't start; the status says so).
@@ -228,6 +231,7 @@ let project = Project(
       // Only embedded in Configurator; a standalone copy must not land in the archive's Applications.
       settings: .settings(
         base: appSigningSettings.merging(["SKIP_INSTALL": "YES"]) { $1 }
+          .merging(noAccentColor) { $1 }
           .merging(helperProfile.isEmpty ? [:] : ["PROVISIONING_PROFILE_SPECIFIER": .string(helperProfile)]) { $1 }
       )
     ),
@@ -300,7 +304,7 @@ let project = Project(
       settings: .settings(base: appSigningSettings.merging([
         // The script copies a whole app bundle, which the user-script sandbox doesn't allow.
         "ENABLE_USER_SCRIPT_SANDBOXING": "NO",
-      ]) { $1 })
+      ]) { $1 }.merging(noAccentColor) { $1 })
     ),
   ],
   schemes: [
