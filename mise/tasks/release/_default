@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Archive, notarize and package a release"
+#MISE depends=["release:package"]
+set -euo pipefail
+
+# Order matters: each step consumes the previous step's output in build/release, and the chain
+# release:package -> release:notarize -> release:archive runs them in that order.
+echo "Release ready: ${MISE_PROJECT_ROOT}/build/release/KeyLayers.zip"

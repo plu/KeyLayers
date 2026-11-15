@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Re-record every snapshot"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# The run reports the recorded snapshots as failures, so its exit status says nothing here.
+TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all tuist test SnapshotTests -- -allowProvisioningUpdates || true

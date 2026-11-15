@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Run the unit, snapshot and UI tests"
+set -euo pipefail
+
+# One after another: each `tuist test` regenerates the project and shares the derived data.
+mise run test:unit
+mise run test:snapshot
+mise run test:ui

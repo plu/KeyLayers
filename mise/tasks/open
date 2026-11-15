@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Generate the workspace and open it in Xcode"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+tuist generate

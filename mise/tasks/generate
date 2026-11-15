@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Resolve dependencies and generate the Xcode workspace"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+tuist install
+tuist generate --no-open

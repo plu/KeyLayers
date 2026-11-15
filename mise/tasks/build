@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Build the Configurator"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# The helper carries a restricted entitlement (HID virtual device): let Xcode fetch its profile.
+tuist build Configurator -- -allowProvisioningUpdates

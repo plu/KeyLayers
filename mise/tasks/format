@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Format the code with SwiftFormat"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+swiftformat .

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run the UITests scheme"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# The helper carries a restricted entitlement (HID virtual device): let Xcode fetch its profile.
+tuist test UITests -- -allowProvisioningUpdates

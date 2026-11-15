@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Zip the stapled app into build/release/KeyLayers.zip"
+#MISE depends=["release:notarize"]
+set -euo pipefail
+
+OUT="${MISE_PROJECT_ROOT}/build/release"
+APP="${OUT}/export/KeyLayers.app"
+ZIP="${OUT}/KeyLayers.zip"
+
+[ -d "${APP}" ] || { echo "error: ${APP} not found. Run: mise run release:archive && mise run release:notarize" >&2; exit 1; }
+xcrun stapler validate "${APP}" >/dev/null 2>&1 || {
+  echo "error: ${APP} has no stapled notarization ticket. Run: mise run release:notarize" >&2
+  exit 1
+}
+
+rm -f "${ZIP}"
+ditto -c -k --keepParent "${APP}" "${ZIP}"
+echo "Created ${ZIP}"

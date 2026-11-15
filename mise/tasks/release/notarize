@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#MISE description="Notarize the exported app and staple the ticket"
+#MISE depends=["release:archive"]
+set -euo pipefail
+
+# Submits the exported app to Apple's notary service and staples the ticket. Authenticates with an
+# App Store Connect API key kept in fnox (see fnox.toml). less-paper keeps the same key as ALTOOL_*.
+# mise runs sibling dependencies in parallel, so the release order is encoded as a depends chain.
+OUT="${MISE_PROJECT_ROOT}/build/release"
+APP="${OUT}/export/KeyLayers.app"
+SUBMIT_ZIP="${OUT}/notarize-submit.zip"
+
+fail() { echo "error: $*" >&2; exit 1; }
+
+for name in ASC_API_KEY ASC_API_KEY_ID ASC_API_ISSUER_ID; do
+  [ -n "${!name:-}" ] || fail "${name} is not set.
+  Notarization needs an App Store Connect API key (Users and Access -> Integrations -> Team Keys).
+  Store it with:
+    base64 -i AuthKey_<KEY_ID>.p8 | fnox set ASC_API_KEY
+    fnox set ASC_API_KEY_ID
+    fnox set ASC_API_ISSUER_ID"
+done
+[ -d "${APP}" ] || fail "${APP} not found. Run: mise run release:archive"
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
+AUTH_KEY_PATH="${TMP_DIR}/AuthKey_${ASC_API_KEY_ID}.p8"
+printf '%s' "${ASC_API_KEY}" | base64 -d > "${AUTH_KEY_PATH}"
+AUTH=(--key "${AUTH_KEY_PATH}" --key-id "${ASC_API_KEY_ID}" --issuer "${ASC_API_ISSUER_ID}")
+
+rm -f "${SUBMIT_ZIP}"
+ditto -c -k --keepParent "${APP}" "${SUBMIT_ZIP}"
+xcrun notarytool submit "${SUBMIT_ZIP}" "${AUTH[@]}" --wait ||
+  fail "notarization failed. For a rejection, see: xcrun notarytool log <submission-id> with the same API key"
+rm -f "${SUBMIT_ZIP}"
+
+xcrun stapler staple "${APP}"
+xcrun stapler validate "${APP}"

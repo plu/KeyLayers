@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+#MISE description="Archive the Configurator and export it signed with Developer ID"
+set -euo pipefail
+
+# Archives the Configurator (with the embedded helper) and exports it signed with Developer ID.
+# Output: build/release/KeyLayers.xcarchive and build/release/export/KeyLayers.app
+#
+# Signing is manual and with the Developer ID identity throughout: automatic signing would want an
+# Apple Development certificate and an Xcode account on the machine, and neither app needs a
+# provisioning profile (the team-prefixed App Group is allowed without one under Developer ID).
+# The exception is the helper: its com.apple.developer.hid.virtual.device entitlement is restricted
+# and needs a Developer ID provisioning profile (HELPER_PROVISIONING_PROFILE names it).
+ROOT="$MISE_PROJECT_ROOT"
+OUT="${ROOT}/build/release"
+ARCHIVE="${OUT}/KeyLayers.xcarchive"
+EXPORT="${OUT}/export"
+APP="${EXPORT}/KeyLayers.app"
+HELPER="${APP}/Contents/Library/LoginItems/KeyLayersHelper.app"
+DAEMON="${APP}/Contents/Library/HelperTools/KeyLayersInputDaemon"
+OPTIONS="${OUT}/ExportOptions.plist"
+
+fail() { echo "error: $*" >&2; exit 1; }
+
+[ -n "${TUIST_TEAM_ID:-}" ] || fail "TUIST_TEAM_ID is not set.
+  Store your 10-character Apple Developer Team ID with: fnox set TUIST_TEAM_ID
+  Release builds must be signed with a team: the App Group and the helper's Mach service name contain it."
+
+# The helper's profile is checked before anything is built: without Apple's approval of the HID
+# Virtual Device entitlement there is no profile, and the archive would fail late and obscurely.
+PROFILE_ERROR="No Developer ID provisioning profile for com.plunien.keylayers.helper — it requires Apple's approval of the HID Virtual Device entitlement
+  Create a Developer ID provisioning profile for com.plunien.keylayers.helper in the developer portal,
+  install it (double-click the .provisioningprofile), then store its name with:
+    fnox set HELPER_PROVISIONING_PROFILE"
+[ -n "${HELPER_PROVISIONING_PROFILE:-}" ] || fail "${PROFILE_ERROR}"
+profile_found=0
+for dir in "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles" "${HOME}/Library/MobileDevice/Provisioning Profiles"; do
+  [ -d "${dir}" ] || continue
+  for f in "${dir}"/*.provisioningprofile "${dir}"/*.mobileprovision; do
+    [ -f "${f}" ] || continue
+    name="$(security cms -D -i "${f}" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null || true)"
+    if [ "${name}" = "${HELPER_PROVISIONING_PROFILE}" ]; then profile_found=1; break 2; fi
+  done
+done
+[ "${profile_found}" = 1 ] || fail "${PROFILE_ERROR}"
+
+# With DEVELOPER_ID_CERTIFICATE in fnox (a base64 .p12 with an empty password), the identity is
+# imported into a throwaway keychain for this run, the way less-paper's ci:build does it, so the
+# release needs nothing in the login keychain. Without it, the login keychain must hold one.
+if [ -n "${DEVELOPER_ID_CERTIFICATE:-}" ]; then
+  TMP_DIR="$(mktemp -d)"
+  KEYCHAIN="${TMP_DIR}/release.keychain-db"
+  KEYCHAIN_PASSWORD="$(uuidgen)"
+  # The user search list as it is now, restored on exit so the throwaway keychain does not linger.
+  ORIGINAL_KEYCHAINS=()
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    ORIGINAL_KEYCHAINS+=("${line//\"/}")
+  done < <(security list-keychains -d user)
+  cleanup() {
+    security list-keychains -d user -s "${ORIGINAL_KEYCHAINS[@]}"
+    security delete-keychain "${KEYCHAIN}" 2>/dev/null || true
+    rm -rf "${TMP_DIR}"
+  }
+  trap cleanup EXIT
+
+  security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+  security set-keychain-settings -lut 21600 "${KEYCHAIN}"
+  security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+  security list-keychains -d user -s "${KEYCHAIN}" "${ORIGINAL_KEYCHAINS[@]}"
+  printf '%s' "${DEVELOPER_ID_CERTIFICATE}" | base64 -d > "${TMP_DIR}/developer-id.p12"
+  security import "${TMP_DIR}/developer-id.p12" -k "${KEYCHAIN}" -P "" -T /usr/bin/codesign >/dev/null
+  # Lets codesign use the key without a GUI prompt, which nobody is there to answer over SSH.
+  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}" >/dev/null
+fi
+
+mkdir -p "${OUT}"
+sed -e "s/@TEAM_ID@/${TUIST_TEAM_ID}/" -e "s/@HELPER_PROFILE@/${HELPER_PROVISIONING_PROFILE}/" \
+  "${ROOT}/mise/scripts/ExportOptions.plist.template" > "${OPTIONS}"
+plutil -lint "${OPTIONS}" >/dev/null || fail "generated ${OPTIONS} is not a valid plist"
+
+security find-identity -v -p codesigning | grep -F "Developer ID Application" | grep -qF "(${TUIST_TEAM_ID})" ||
+  fail "no 'Developer ID Application' identity for team ${TUIST_TEAM_ID} in the keychain.
+  Store it in fnox as a base64 .p12 with an empty password:
+    base64 -i DeveloperID.p12 | fnox set DEVELOPER_ID_CERTIFICATE
+  or install it in the login keychain. Creating one requires the Account Holder role."
+
+cd "${ROOT}"
+# Read by Project.swift: only the helper target gets PROVISIONING_PROFILE_SPECIFIER.
+export TUIST_HELPER_PROVISIONING_PROFILE="${HELPER_PROVISIONING_PROFILE}"
+rm -rf "${ARCHIVE}" "${EXPORT}"
+tuist install
+tuist generate --no-open
+
+xcodebuild archive \
+  -workspace KeyLayers.xcworkspace \
+  -scheme Configurator \
+  -configuration Release \
+  -archivePath "${ARCHIVE}" \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY="Developer ID Application" \
+  DEVELOPMENT_TEAM="${TUIST_TEAM_ID}"
+
+xcodebuild -exportArchive \
+  -archivePath "${ARCHIVE}" \
+  -exportPath "${EXPORT}" \
+  -exportOptionsPlist "${OPTIONS}"
+
+[ -d "${APP}" ] || fail "export did not produce ${APP}"
+[ -d "${HELPER}" ] || fail "the exported app has no embedded helper at ${HELPER}"
+[ -f "${DAEMON}" ] || fail "the exported app has no input daemon at ${DAEMON}"
+
+echo "Verifying signatures..."
+codesign --verify --deep --strict --verbose=2 "${APP}"
+for bundle in "${APP}" "${HELPER}" "${DAEMON}"; do
+  info="$(codesign -dv --verbose=4 "${bundle}" 2>&1)"
+  grep -q "Authority=Developer ID Application" <<<"${info}" ||
+    fail "${bundle} is not signed with a Developer ID Application identity"
+  grep -Eq "flags=.*\(.*runtime.*\)" <<<"${info}" ||
+    fail "${bundle} does not have the hardened runtime flag"
+  echo "ok: ${bundle#"${ROOT}"/} is Developer ID signed with hardened runtime"
+done
+codesign --verify --strict --verbose=2 "${HELPER}"
+codesign --verify --strict --verbose=2 "${DAEMON}"
+codesign -d --entitlements - "${HELPER}" 2>&1 | grep -q "com.apple.developer.hid.virtual.device" ||
+  fail "${HELPER} does not carry the com.apple.developer.hid.virtual.device entitlement"
+echo "ok: the helper carries the HID virtual device entitlement"
+echo "Archive and export done: ${APP}"

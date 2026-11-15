@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run SwiftLint (strict) and SwiftFormat in lint mode"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+swiftlint --strict
+swiftformat --lint .

@@ -1,0 +1,101 @@
+import ComposableArchitecture
+import Foundation
+import KeymapModel
+import SharedConfig
+
+/// Settings: double-tap timeout, layer HUD, launch helper at login.
+///
+/// Configuration fields change through explicit actions (not bindings) so the read-only guard
+/// runs before anything is written.
+@Reducer
+public struct SettingsFeature: Sendable {
+  @ObservableState
+  public struct State: Equatable {
+    @Shared(.configuration) public var configuration: Configuration
+    @Shared(.launchHelperAtLogin) public var launchAtLogin: Bool
+    /// Why the last registration change failed, if it did.
+    public var registrationError: String?
+
+    public init() {}
+
+    public var isReadOnly: Bool {
+      $configuration.loadError != nil
+    }
+  }
+
+  public enum Action: Sendable {
+    case doubleTapTimeoutChanged(Int)
+    case showLayerHUDChanged(Bool)
+    case launchAtLoginChanged(Bool)
+    case registrationFailed(String)
+    case doneTapped
+  }
+
+  public static let doubleTapTimeoutRange = 100 ... 1000
+  public static let doubleTapTimeoutStep = 50
+
+  /// Rounds to the nearest step and clamps to the range: 40 → 100, 333 → 350, 1210 → 1000.
+  public static func clampedDoubleTapTimeout(_ milliseconds: Int) -> Int {
+    let step = Double(doubleTapTimeoutStep)
+    let rounded = Int((Double(milliseconds) / step).rounded()) * doubleTapTimeoutStep
+    return min(max(rounded, doubleTapTimeoutRange.lowerBound), doubleTapTimeoutRange.upperBound)
+  }
+
+  @Dependency(\.helperRegistration) var registration
+  @Dependency(\.dismiss) var dismiss
+
+  public init() {}
+
+  public var body: some ReducerOf<Self> {
+    Reduce { state, action in
+      switch action {
+      case let .doubleTapTimeoutChanged(milliseconds):
+        guard !state.isReadOnly else { return .none }
+        let clamped = Self.clampedDoubleTapTimeout(milliseconds)
+        guard clamped != state.configuration.settings.doubleTapTimeoutMilliseconds else { return .none }
+        state.$configuration.withLock { $0.settings.doubleTapTimeoutMilliseconds = clamped }
+        return .none
+
+      case let .showLayerHUDChanged(isOn):
+        guard !state.isReadOnly, isOn != state.configuration.settings.showLayerHUD else { return .none }
+        state.$configuration.withLock { $0.settings.showLayerHUD = isOn }
+        return .none
+
+      case let .launchAtLoginChanged(isOn):
+        // Not part of the configuration file, so allowed while it's read-only.
+        state.$launchAtLogin.withLock { $0 = isOn }
+        state.registrationError = nil
+        return .run { send in
+          // SMAppService rejects registering twice and unregistering what isn't registered.
+          let status = registration.status()
+          do {
+            if isOn, status != .enabled, status != .requiresApproval {
+              try registration.register()
+            } else if !isOn, status != .notRegistered, status != .notFound {
+              try registration.unregister()
+            }
+          } catch {
+            await send(.registrationFailed(HelperRegistrationClient.describe(error)))
+          }
+          // Turning it on also registers the input daemon. Turning it off leaves the daemon
+          // registered: without a helper connection it is idle.
+          let daemonStatus = registration.daemonStatus()
+          if isOn, daemonStatus == .notRegistered || daemonStatus == .notFound {
+            do {
+              try registration.registerDaemon()
+            } catch {
+              await send(.registrationFailed(HelperRegistrationClient.describeDaemon(error)))
+            }
+          }
+        }
+
+      case let .registrationFailed(message):
+        state.registrationError = message
+        return .none
+
+      case .doneTapped:
+        return .run { _ in await dismiss() }
+      }
+    }
+  }
+}

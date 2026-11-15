@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#MISE description="Re-record the README snapshots and copy the images to docs/images"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+snapshots="Tests/ConfiguratorSnapshotTests/__Snapshots__/ReadmeSnapshotTests"
+references=("$snapshots/readmeBase.light.png" "$snapshots/readmeMod.light.png")
+
+# Marks the start of this run: the references must be written after it.
+started="$(mktemp -t readme-images)"
+trap 'rm -f "$started"' EXIT
+sleep 1
+
+# The run reports the recorded snapshots as failures, so its exit status says nothing here.
+# Whether it worked shows in the references below.
+TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all tuist test SnapshotTests --no-selective-testing --test-targets ConfiguratorSnapshotTests/ReadmeSnapshotTests -- \
+  -allowProvisioningUpdates || true
+
+for reference in "${references[@]}"; do
+  if [[ ! -f "$reference" || ! "$reference" -nt "$started" ]]; then
+    echo "error: $reference was not recorded (did the build or the snapshot run fail?)" >&2
+    exit 1
+  fi
+done
+scripts/update-readme-images.sh

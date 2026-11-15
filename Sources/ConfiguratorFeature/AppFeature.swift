@@ -1,0 +1,113 @@
+import ComposableArchitecture
+import Foundation
+import KeymapModel
+import SharedConfig
+
+/// The configurator window: keymap list, status area, settings.
+///
+/// When the configuration file can't be loaded the app is read-only: swift-sharing's in-memory
+/// value is then the default, and any write would overwrite the user's file. Each child feature
+/// checks the shared load error itself before it writes.
+@Reducer
+public struct AppFeature: Sendable {
+  @ObservableState
+  public struct State: Equatable {
+    @Shared(.configuration) public var configuration: Configuration
+    public var keymapList: KeymapListFeature.State
+    /// The selected keymap's editor; `nil` when nothing is selected.
+    public var editor: KeymapEditorFeature.State?
+    public var status: StatusFeature.State
+    @Presents public var settings: SettingsFeature.State?
+
+    public init(
+      keymapList: KeymapListFeature.State = KeymapListFeature.State(),
+      status: StatusFeature.State = StatusFeature.State(),
+      settings: SettingsFeature.State? = nil
+    ) {
+      self.keymapList = keymapList
+      editor = keymapList.selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
+      self.status = status
+      self.settings = settings
+    }
+
+    public var isReadOnly: Bool {
+      $configuration.loadError != nil
+    }
+
+    public var loadErrorMessage: String? {
+      ConfigurationLoadError.message(for: $configuration.loadError)
+    }
+  }
+
+  public enum Action: Sendable {
+    case task
+    case keymapList(KeymapListFeature.Action)
+    case editor(KeymapEditorFeature.Action)
+    case status(StatusFeature.Action)
+    case settingsButtonTapped
+    case settings(PresentationAction<SettingsFeature.Action>)
+  }
+
+  @Dependency(\.helperRegistration) var registration
+
+  public init() {}
+
+  public var body: some ReducerOf<Self> {
+    Scope(state: \.keymapList, action: \.keymapList) {
+      KeymapListFeature()
+    }
+    .onChange(of: \.keymapList.selection) { _, selection in
+      Reduce { state, _ in
+        state.editor = selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
+        return .none
+      }
+    }
+    Scope(state: \.status, action: \.status) {
+      StatusFeature()
+    }
+    Reduce { state, action in
+      switch action {
+      case .task:
+        return .run { send in
+          // macOS reports a never-registered service as `.notFound`, so that counts too; a plist that
+          // is really missing makes `register()` throw, which is reported below.
+          // First launch (or "launch at login" back on): register the helper with launchd.
+          @Shared(.launchHelperAtLogin) var launchAtLogin
+          if launchAtLogin, needsRegistration(registration.status()) {
+            do {
+              try registration.register()
+            } catch {
+              await send(.status(.registrationFailed(HelperRegistrationClient.describe(error))))
+            }
+          }
+          // The root input daemon follows the same rules.
+          if launchAtLogin, needsRegistration(registration.daemonStatus()) {
+            do {
+              try registration.registerDaemon()
+            } catch {
+              await send(.status(.daemonRegistrationFailed(HelperRegistrationClient.describeDaemon(error))))
+            }
+          }
+          await send(.status(.task))
+        }
+
+      case .settingsButtonTapped:
+        state.settings = SettingsFeature.State()
+        return .none
+
+      case .keymapList, .editor, .status, .settings:
+        return .none
+      }
+    }
+    .ifLet(\.editor, action: \.editor) {
+      KeymapEditorFeature()
+    }
+    .ifLet(\.$settings, action: \.settings) {
+      SettingsFeature()
+    }
+  }
+}
+
+private func needsRegistration(_ status: HelperRegistrationClient.Status) -> Bool {
+  status == .notRegistered || status == .notFound
+}
