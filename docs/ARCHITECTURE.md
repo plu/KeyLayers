@@ -48,11 +48,11 @@ seize.
 
 | Process | Bundle ID | Runs as | Registered as |
 | --- | --- | --- | --- |
-| Configurator `KeyLayers.app` | `com.plunien.keylayers.configurator` | user | — |
-| Helper `KeyLayersHelper` | `com.plunien.keylayers.helper` | user | login item, `SMAppService.agent` |
-| Input daemon `KeyLayersInputDaemon` | `com.plunien.keylayers.inputd` | root | `SMAppService.daemon` |
+| Configurator `KeyLayers.app` | `<prefix>.configurator` | user | — |
+| Helper `KeyLayersHelper` | `<prefix>.helper` | user | login item, `SMAppService.agent` |
+| Input daemon `KeyLayersInputDaemon` | `<prefix>.inputd` | root | `SMAppService.daemon` |
 
-The `com.plunien.keylayers` prefix comes from `TUIST_BUNDLE_ID_PREFIX` (that is its default).
+The `<prefix>` comes from `TUIST_BUNDLE_ID_PREFIX` (default `com.plunien.keylayers`).
 
 **Configurator** (`Apps/Configurator`, `ConfiguratorFeature`). The window where keymaps are edited on a
 drawing of the user's own keyboard. It writes the configuration file, registers the helper and the
@@ -171,14 +171,14 @@ helper starts on the default keymap.
 
 ### Configurator → helper
 
-The helper vends the Mach service `<TEAMID>.com.plunien.keylayers.helper` (`RemapperXPCProtocol`:
+The helper vends the Mach service `<TEAMID>.<prefix>.helper` (`RemapperXPCProtocol`:
 current status, pause/resume). The configurator exports an observer the helper pushes
 `HelperStatus` changes to. When the build has a team, the helper admits only the configurator: its
 bundle ID, anchored to Apple, signed by the team (`HelperXPCServer.configuratorRequirement`).
 
 ### Helper ↔ input daemon
 
-The daemon vends `<TEAMID>.com.plunien.keylayers.inputd` (`InputDaemonXPCProtocol`: `startCapture`,
+The daemon vends `<TEAMID>.<prefix>.inputd` (`InputDaemonXPCProtocol`: `startCapture`,
 `stopCapture`, `heartbeat`); the helper exports `InputDaemonClientXPCProtocol` (`devicesChanged`,
 `keyEvents`). The helper always connects to the daemon, never the other way round.
 
@@ -233,7 +233,7 @@ The helper doesn't need Input Monitoring: it never reads input itself.
   hoc and the helper goes without its restricted entitlement (so remapping can't start).
 - The helper carries `com.apple.developer.hid.virtual.device`, a restricted entitlement that needs a
   provisioning profile. Development builds get it from Xcode (`-allowProvisioningUpdates` in the mise
-  tasks). Release builds need a Developer ID provisioning profile for `com.plunien.keylayers.helper`
+  tasks). Release builds need a Developer ID provisioning profile for `<prefix>.helper`
   (`HELPER_PROVISIONING_PROFILE`); `release:archive` fails early without it.
 - The configurator and the daemon need no profile. The daemon is a command-line tool with its
   Info.plist embedded in the binary.

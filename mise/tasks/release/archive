@@ -19,6 +19,8 @@ HELPER="${APP}/Contents/Library/LoginItems/KeyLayersHelper.app"
 DAEMON="${APP}/Contents/Library/HelperTools/KeyLayersInputDaemon"
 OPTIONS="${OUT}/ExportOptions.plist"
 
+HELPER_BUNDLE_ID="${TUIST_BUNDLE_ID_PREFIX:-com.plunien.keylayers}.helper"
+
 fail() { echo "error: $*" >&2; exit 1; }
 
 [ -n "${TUIST_TEAM_ID:-}" ] || fail "TUIST_TEAM_ID is not set.
@@ -27,8 +29,8 @@ fail() { echo "error: $*" >&2; exit 1; }
 
 # The helper's profile is checked before anything is built: without Apple's approval of the HID
 # Virtual Device entitlement there is no profile, and the archive would fail late and obscurely.
-PROFILE_ERROR="No Developer ID provisioning profile for com.plunien.keylayers.helper — it requires Apple's approval of the HID Virtual Device entitlement
-  Create a Developer ID provisioning profile for com.plunien.keylayers.helper in the developer portal,
+PROFILE_ERROR="No Developer ID provisioning profile for ${HELPER_BUNDLE_ID} — it requires Apple's approval of the HID Virtual Device entitlement
+  Create a Developer ID provisioning profile for ${HELPER_BUNDLE_ID} in the developer portal,
   install it (double-click the .provisioningprofile), then store its name with:
     fnox set HELPER_PROVISIONING_PROFILE"
 [ -n "${HELPER_PROVISIONING_PROFILE:-}" ] || fail "${PROFILE_ERROR}"
@@ -74,7 +76,7 @@ if [ -n "${DEVELOPER_ID_CERTIFICATE:-}" ]; then
 fi
 
 mkdir -p "${OUT}"
-sed -e "s/@TEAM_ID@/${TUIST_TEAM_ID}/" -e "s/@HELPER_PROFILE@/${HELPER_PROVISIONING_PROFILE}/" \
+sed -e "s/@TEAM_ID@/${TUIST_TEAM_ID}/" -e "s/@HELPER_PROFILE@/${HELPER_PROVISIONING_PROFILE}/" -e "s/@HELPER_BUNDLE_ID@/${HELPER_BUNDLE_ID}/" \
   "${ROOT}/mise/scripts/ExportOptions.plist.template" > "${OPTIONS}"
 plutil -lint "${OPTIONS}" >/dev/null || fail "generated ${OPTIONS} is not a valid plist"
 

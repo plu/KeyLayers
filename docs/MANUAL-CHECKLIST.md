@@ -9,8 +9,8 @@ One-time setup: install a "Developer ID Application" certificate in the login ke
 secrets declared in `fnox.toml` (age-encrypted, committed): `fnox set TUIST_TEAM_ID`, and an App Store
 Connect API key for notarization with `base64 -i AuthKey_<KEY_ID>.p8 | fnox set ASC_API_KEY`,
 `fnox set ASC_API_KEY_ID` and `fnox set ASC_API_ISSUER_ID`. `TUIST_BUNDLE_ID_PREFIX` defaults to
-`com.plunien.keylayers`; export it to override.
-The helper needs a Developer ID provisioning profile for `com.plunien.keylayers.helper` (it carries the restricted
+`com.plunien.keylayers`; set it (e.g. in `mise.local.toml`) to override, and `<prefix>` below means its value.
+The helper needs a Developer ID provisioning profile for `<prefix>.helper` (it carries the restricted
 `com.apple.developer.hid.virtual.device` entitlement, which requires Apple's approval): create it in the developer
 portal, install it, and `fnox set HELPER_PROVISIONING_PROFILE` with its name. `release:archive` fails before
 archiving without it. It also verifies the app, helper and `KeyLayersInputDaemon` are Developer ID signed with

@@ -1,0 +1,21 @@
+# Copy to mise.local.toml (git-ignored) and uncomment what you need. mise loads it for every task.
+
+[env]
+# Your 10-character Apple Developer Team ID. Required for remapping to work (see README, Developing).
+# TUIST_TEAM_ID = "ABCDE12345"
+
+# Bundle ID prefix of your own App IDs: <prefix>.configurator, <prefix>.helper, <prefix>.inputd.
+# Default: com.plunien.keylayers (the author's team; use your own).
+# TUIST_BUNDLE_ID_PREFIX = "com.example.keylayers"
+
+# Release only (mise run release): name of the Developer ID provisioning profile for <prefix>.helper.
+# HELPER_PROVISIONING_PROFILE = "KeyLayers Helper Developer ID"
+
+# Release only: App Store Connect API key for notarization (base64 of AuthKey_<KEY_ID>.p8), its key ID and issuer ID.
+# ASC_API_KEY = ""
+# ASC_API_KEY_ID = ""
+# ASC_API_ISSUER_ID = ""
+
+# Release only, optional: base64 .p12 (empty password) of the Developer ID Application certificate.
+# Without it, the login keychain must hold one.
+# DEVELOPER_ID_CERTIFICATE = ""

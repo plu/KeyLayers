@@ -12,7 +12,7 @@
 	<string>Developer ID Application</string>
 	<key>provisioningProfiles</key>
 	<dict>
-		<key>com.plunien.keylayers.helper</key>
+		<key>@HELPER_BUNDLE_ID@</key>
 		<string>@HELPER_PROFILE@</string>
 	</dict>
 </dict>
