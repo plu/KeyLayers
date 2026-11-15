@@ -24,14 +24,18 @@ func out(_ key: KeyID, _ isDown: Bool, _ modifiers: Modifiers = [], repeat isRep
 
 extension Configuration {
   /// A one-keymap configuration with ID `Keymap.starterID`.
-  static func testing(_ layers: [LayerName: [KeyID: KeyAction]]) -> Configuration {
+  static func testing(_ layers: [LayerName: [KeyID: KeyAction]], macros: [Macro] = []) -> Configuration {
     let keymap = Keymap(
       id: Keymap.starterID,
       name: "Test",
       abbreviation: "TST",
       layers: layers.mapValues { Layer(actions: $0) }
     )
-    return Configuration(keymaps: IdentifiedArray(uniqueElements: [keymap]), defaultKeymapID: Keymap.starterID)
+    return Configuration(
+      macros: IdentifiedArray(uniqueElements: macros),
+      keymaps: IdentifiedArray(uniqueElements: [keymap]),
+      defaultKeymapID: Keymap.starterID
+    )
   }
 }
 

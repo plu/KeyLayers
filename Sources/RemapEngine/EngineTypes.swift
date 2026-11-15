@@ -45,15 +45,19 @@ public struct EngineResult: Equatable, Sendable {
   public var disposition: Disposition
   public var output: [OutputEvent]
   public var notifications: [EngineNotification]
+  /// Macros to play after `output` is posted, as configured at press time.
+  public var macros: [Macro]
 
   public init(
     disposition: Disposition,
     output: [OutputEvent] = [],
-    notifications: [EngineNotification] = []
+    notifications: [EngineNotification] = [],
+    macros: [Macro] = []
   ) {
     self.disposition = disposition
     self.output = output
     self.notifications = notifications
+    self.macros = macros
   }
 }
 

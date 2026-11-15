@@ -78,6 +78,7 @@ public struct RemapEngine: Sendable {
     let resolution: ResolvedPress
     var activation: [OutputEvent] = []
     var notifications: [EngineNotification] = []
+    var macro: Macro?
     // Synthetic modifiers held by other presses (before a down, after an up).
     let heldByOthers: Modifiers
     switch event.phase {
@@ -87,8 +88,12 @@ public struct RemapEngine: Sendable {
       }
       activation = activatePendingRoles(except: event.key)
       heldByOthers = syntheticModifiers
-      (resolution, notifications) = resolve(event)
+      let resolved = resolve(event)
+      (resolution, notifications, macro) = (resolved.press, resolved.notifications, resolved.macro)
       presses[event.key] = resolution
+      if macro != nil {
+        activation += releaseSyntheticModifiers()
+      }
     case .repeat:
       resolution = presses[event.key] ?? .unmapped
       heldByOthers = syntheticModifiers
@@ -104,6 +109,9 @@ public struct RemapEngine: Sendable {
     var result = apply(resolution, to: event, heldByOthers: heldByOthers)
     result.output.insert(contentsOf: activation, at: 0)
     result.notifications.insert(contentsOf: notifications, at: 0)
+    if let macro {
+      result.macros = [macro]
+    }
     return result
   }
 
@@ -183,29 +191,51 @@ public struct RemapEngine: Sendable {
     physicalModifiers.union(syntheticModifiers)
   }
 
+  /// Ups for synthetic modifiers not also held physically, so they don't mix
+  /// into a macro. Their holders become `.block`, so nothing re-sends or
+  /// releases them later.
+  private mutating func releaseSyntheticModifiers() -> [OutputEvent] {
+    let released = syntheticModifiers.subtracting(physicalModifiers)
+    for (key, press) in presses {
+      if case .holdModifiers = press {
+        presses[key] = .block
+      }
+    }
+    return released.members.map { output($0.keyID, .up, physicalModifiers) }
+  }
+
   // MARK: - Resolution
 
-  private mutating func resolve(_ event: KeyEvent) -> (ResolvedPress, [EngineNotification]) {
+  private struct Resolution {
+    var press: ResolvedPress
+    var notifications: [EngineNotification] = []
+    /// The macro a macro key plays, as configured at press time.
+    var macro: Macro?
+  }
+
+  private mutating func resolve(_ event: KeyEvent) -> Resolution {
     let key = event.key
     let keymap = configuration.keymaps[id: status.activeKeymapID] ?? configuration.defaultKeymap
     let action = keymap.action(for: key, on: layers.active)
       ?? keymap.action(for: key, on: .base)
-    guard let action else { return (.unmapped, []) }
+    guard let action else { return Resolution(press: .unmapped) }
     switch action {
     case let .keypress(keypress):
       if let role = keypress.secondaryRole {
         roles.add(key, primary: keypress, role: role)
-        return (.pendingSecondaryRole, [])
+        return Resolution(press: .pendingSecondaryRole)
       }
-      return (resolve(keypress), [])
-    // Macro playback is wired up in a later task; until then a macro key does nothing.
-    case .block, .unsupported, .macro:
-      return (.block, [])
+      return Resolution(press: resolve(keypress))
+    case .block, .unsupported:
+      return Resolution(press: .block)
+    // Repeats and the up are suppressed; a macro that no longer exists does nothing.
+    case let .macro(id):
+      return Resolution(press: .block, macro: configuration.macros[id: id])
     case let .switchLayer(layer, mode):
-      return (.block, applyLayerSwitch(layer, mode: mode, event: event))
+      return Resolution(press: .block, notifications: applyLayerSwitch(layer, mode: mode, event: event))
     case let .switchKeymap(id):
-      guard configuration.keymaps[id: id] != nil else { return (.block, []) }
-      return (.block, switchKeymap(to: id))
+      guard configuration.keymaps[id: id] != nil else { return Resolution(press: .block) }
+      return Resolution(press: .block, notifications: switchKeymap(to: id))
     }
   }
 
