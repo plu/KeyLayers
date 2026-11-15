@@ -132,7 +132,10 @@ final class ConfiguratorUITests: XCTestCase {
 
   func testStarterKeymapShownOnFirstLaunch() {
     launch()
-    XCTAssertEqual(app.buttons["key.7:57"].value as? String, "⎋ Mod")
+    // The starter keymap holds fn for the Mod layer and leaves Caps Lock alone.
+    let fnValue = app.buttons["key.255:3"].value as? String ?? ""
+    XCTAssertTrue(fnValue.contains("Mod"), "fn should show the Mod layer switch, got \(fnValue)")
+    XCTAssertEqual(app.buttons["key.7:57"].value as? String, "⇪")
   }
 
   // MARK: - Helpers

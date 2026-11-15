@@ -193,7 +193,10 @@ let project = Project(
       bundleId: "\(prefix).ConfiguratorUITests",
       deploymentTargets: .macOS("26.0"),
       sources: ["Tests/ConfiguratorUITests/**"],
-      dependencies: [.target(name: "Configurator")]
+      dependencies: [.target(name: "Configurator")],
+      // The UI test runner loads this bundle under library validation: both must carry the same
+      // team signature (ad hoc has no team), and the hardened runtime is for shipped binaries only.
+      settings: .settings(base: appSigningSettings.merging(["ENABLE_HARDENED_RUNTIME": "NO"]) { $1 })
     ),
     .target(
       name: "KeyLayersHelper",
