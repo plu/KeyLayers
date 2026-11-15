@@ -29,6 +29,27 @@ struct ShellSnapshotTests {
     assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))
   }
 
+  @Test func appWindowWithMacroSelected() throws {
+    let store = try makeStore(AppFeature(), dependencies: fixedDependencies(macros: [coffeeMacro])) {
+      var state = AppFeature.State(
+        macroList: MacroListFeature.State(selection: coffeeMacroID),
+        status: StatusFeature.State(
+          helper: .running(HelperStatus(activeKeymapID: Keymap.starterID, permissions: granted)),
+          registration: .enabled,
+          daemonRegistration: .enabled
+        )
+      )
+      // Like selecting the macro in the sidebar: the keymap is deselected.
+      state.keymapList.selection = nil
+      state.editor = nil
+      state.macroEditor?.labels = StaticKeyLabels.usANSI
+      return state
+    }
+    withDependencies { $0.textKeystrokes = asciiTextKeystrokes } operation: {
+      assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))
+    }
+  }
+
   @Test func appWindowReadOnly() throws {
     let store = try makeStore(AppFeature(), dependencies: fixedDependencies(fileData: Data("{".utf8))) {
       withUSLabels(AppFeature.State(status: StatusFeature.State(helper: .notRunning, registration: .enabled, daemonRegistration: .enabled)))

@@ -44,8 +44,19 @@ it. The Pause button in the window does the same.
 ## Editing
 
 Click a key on the layer you want to change and pick an action: a key press with optional
-modifiers (including media keys), a layer switch, a keymap switch, or None. To remove a mapping, click the key, choose the None tab and
+modifiers (including media keys), a layer switch, a keymap switch, a macro, or None. To remove a mapping, click the key, choose the None tab and
 leave "Block the key" off. The key then behaves as it normally does.
+
+### Macros
+
+Create macros in the sidebar, under the keymaps. A macro is a list of steps: Key (tap, press or
+release a key with modifiers), Text (type a string) and Delay (wait some milliseconds). Bind a macro
+to a key with the Macro tab of the key editor.
+
+Text is typed for the current input source. Some limits: characters that aren't on the layout
+(emoji, symbols, other scripts) are skipped, an active input method composes the text instead of
+inserting it, modifiers you hold and keys you type while a macro plays mix in, and Caps Lock is
+turned off for the text and restored afterwards.
 
 ## Developing
 

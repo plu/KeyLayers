@@ -128,6 +128,7 @@ public struct Configuration: Equatable, Sendable, Codable {
     }
     return result
   }
+
   // swiftlint:enable large_tuple
 
   /// Removes the macro and every key bound to it.

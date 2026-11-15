@@ -51,14 +51,33 @@ func assertBothAppearances(
 
 let codingID = UUID(uuidString: "00000000-0000-0000-0000-00000000C0DE")!
 let granted = PermissionStatus(accessibility: true)
+let coffeeMacroID = UUID(uuidString: "00000000-0000-0000-0000-0000000CAFE0")!
+
+/// One step of each kind, the text with a character the layout can't type.
+let coffeeMacro = Macro(id: coffeeMacroID, name: "Coffee", steps: [
+  .key(KeyStep(key: .c, modifiers: [Modifiers(.leftCommand)], kind: .tap)),
+  .text("Coffee time ☕"),
+  .delay(milliseconds: 500),
+])
+
+/// Types the ASCII characters and nothing else, whatever the input source of the machine.
+let asciiTextKeystrokes = TextKeystrokeClient(
+  strokes: { $0.isASCII ? [TextStroke(key: .a, modifiers: [])] : nil },
+  capsLockIsOn: { false }
+)
 
 /// Fixed, inert dependencies: a configuration file with two keymaps (or `fileData`), an enabled
 /// registration and a helper that never reports.
-func fixedDependencies(fileData: Data? = nil, starterOnly: Bool = false) throws -> (inout DependencyValues) -> Void {
+func fixedDependencies(
+  fileData: Data? = nil,
+  starterOnly: Bool = false,
+  macros: [Macro] = []
+) throws -> (inout DependencyValues) -> Void {
   var configuration = Configuration.starter
   if !starterOnly {
     configuration.keymaps.append(Keymap(id: codingID, name: "Coding", abbreviation: "COD"))
   }
+  configuration.macros.append(contentsOf: macros)
   let data = try fileData ?? Configuration.encoder.encode(configuration)
   let files = LockIsolated([AppIdentifiers.configurationURL: data])
   let defaults = UncheckedSendable(UserDefaults(suiteName: "ConfiguratorSnapshotTests-\(UUID().uuidString)")!)

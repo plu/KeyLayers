@@ -116,7 +116,11 @@ public extension Configuration {
     Set(keymaps.flatMap { keymap in
       keymap.layers.values.flatMap { layer in
         layer.actions.values.compactMap { action -> Macro.ID? in
-          if case let .macro(id) = action { id } else { nil }
+          if case let .macro(id) = action {
+            id
+          } else {
+            nil
+          }
         }
       }
     })

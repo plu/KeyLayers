@@ -14,13 +14,14 @@ struct KeyActionEditorSnapshotTests {
     _ action: KeyAction?,
     layer: LayerName = .mod,
     testName: String = #function,
+    macros: [Macro] = [],
     configure: (inout KeyActionEditorFeature.State) -> Void = { _ in }
   ) throws {
     var configuration = Configuration.starter
     configuration.keymaps.append(Keymap(id: codingID, name: "Coding", abbreviation: "COD"))
     let keymaps = configuration.keymaps.elements
     let store = try makeStore(KeyActionEditorFeature(), dependencies: fixedDependencies()) {
-      var state = KeyActionEditorFeature.State(key: .capsLock, layer: layer, action: action, keymaps: keymaps)
+      var state = KeyActionEditorFeature.State(key: .capsLock, layer: layer, action: action, keymaps: keymaps, macros: macros)
       state.labels = StaticKeyLabels.usANSI
       configure(&state)
       return state
@@ -63,6 +64,18 @@ struct KeyActionEditorSnapshotTests {
 
   @Test func keymapTabWithoutTarget() throws {
     try snapshot(nil) { $0.tab = .keymap }
+  }
+
+  @Test func macroTab() throws {
+    try snapshot(.macro(coffeeMacroID), macros: [coffeeMacro])
+  }
+
+  @Test func macroTabWithoutTarget() throws {
+    try snapshot(nil, macros: [coffeeMacro]) { $0.tab = .macro }
+  }
+
+  @Test func macroTabWithoutMacros() throws {
+    try snapshot(nil) { $0.tab = .macro }
   }
 
   @Test func noneTab() throws {
