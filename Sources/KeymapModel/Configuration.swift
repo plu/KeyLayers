@@ -8,10 +8,36 @@ public enum ConfigurationError: Error, Equatable, Sendable {
 public struct Settings: Equatable, Sendable, Codable {
   public var doubleTapTimeoutMilliseconds: Int
   public var showLayerHUD: Bool
+  /// Show the active keymap's abbreviation next to the menu bar icon.
+  public var menuBarShowsKeymap: Bool
+  /// Show the active layer next to the menu bar icon.
+  public var menuBarShowsLayer: Bool
 
-  public init(doubleTapTimeoutMilliseconds: Int = 250, showLayerHUD: Bool = true) {
+  public init(
+    doubleTapTimeoutMilliseconds: Int = 250,
+    showLayerHUD: Bool = true,
+    menuBarShowsKeymap: Bool = false,
+    menuBarShowsLayer: Bool = false
+  ) {
     self.doubleTapTimeoutMilliseconds = doubleTapTimeoutMilliseconds
     self.showLayerHUD = showLayerHUD
+    self.menuBarShowsKeymap = menuBarShowsKeymap
+    self.menuBarShowsLayer = menuBarShowsLayer
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case doubleTapTimeoutMilliseconds, showLayerHUD, menuBarShowsKeymap, menuBarShowsLayer
+  }
+
+  /// Missing keys (files written before a setting existed) take the defaults.
+  public init(from decoder: any Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    let defaults = Settings()
+    doubleTapTimeoutMilliseconds = try c.decodeIfPresent(Int.self, forKey: .doubleTapTimeoutMilliseconds)
+      ?? defaults.doubleTapTimeoutMilliseconds
+    showLayerHUD = try c.decodeIfPresent(Bool.self, forKey: .showLayerHUD) ?? defaults.showLayerHUD
+    menuBarShowsKeymap = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowsKeymap) ?? defaults.menuBarShowsKeymap
+    menuBarShowsLayer = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowsLayer) ?? defaults.menuBarShowsLayer
   }
 }
 

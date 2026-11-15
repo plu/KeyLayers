@@ -46,6 +46,17 @@ struct ConfigurationCodingTests {
     #expect(String(decoding: once, as: UTF8.self).contains(#""type" : "playMacro""#))
   }
 
+  @Test func settingsWithoutNewKeysDecodeToDefaults() throws {
+    let s = try Configuration.decoder.decode(Settings.self, from: Data(#"{"doubleTapTimeoutMilliseconds": 300}"#.utf8))
+    #expect(s == Settings(doubleTapTimeoutMilliseconds: 300))
+    #expect(s.showLayerHUD && !s.menuBarShowsKeymap && !s.menuBarShowsLayer)
+  }
+
+  @Test func menuBarSettingsRoundTrip() throws {
+    let s = Settings(menuBarShowsKeymap: true, menuBarShowsLayer: true)
+    #expect(try Configuration.decoder.decode(Settings.self, from: Configuration.encoder.encode(s)) == s)
+  }
+
   @Test func unknownFieldsAreIgnored() throws {
     let json = Fixtures.v1
       .replacingOccurrences(of: "{\n  \"defaultKeymapID\"", with: "{\n  \"macros\" : [],\n  \"defaultKeymapID\"")
