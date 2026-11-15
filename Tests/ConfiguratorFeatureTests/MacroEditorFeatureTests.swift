@@ -184,6 +184,17 @@ struct MacroEditorFeatureTests {
     await store.send(.recorded(3, nil))
   }
 
+  @Test func recordingAMediaKeyDropsTheModifiers() async throws {
+    let withCommand = MacroStep.key(KeyStep(key: .a, modifiers: Modifiers(.leftCommand), kind: .tap))
+    let fakes = try Fakes(file: configuration(steps: [withCommand]))
+    let store = makeStore(fakes)
+    await store.send(.recorded(0, .volumeUp)) {
+      $0.$configuration.withLock {
+        $0.macros[id: macroID]?.steps[0] = .key(KeyStep(key: .volumeUp, modifiers: [], kind: .tap))
+      }
+    }
+  }
+
   @Test func untypeableListsUniqueCharactersInOrder() {
     let feature = withDependencies {
       $0.textKeystrokes = TextKeystrokeClient(strokes: { $0.isASCII ? [] : nil }, capsLockIsOn: { false }, refresh: {})

@@ -217,7 +217,8 @@ public struct MacroEditorFeature: Sendable {
               case var .key(step) = steps[index]
         else { return .none }
         step.key = key
-        state.editSteps { $0[index] = .key(step) }
+        // A recorded media key drops its modifiers, as a chosen one does.
+        state.editSteps { $0[index] = MacroStep.key(step).normalized }
         return .none
 
       case .delegate:
