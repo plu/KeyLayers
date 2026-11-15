@@ -197,3 +197,18 @@ can do the same through its virtual keyboard and type text for the layout actual
 │      +       │                                     │
 └──────────────┴─────────────────────────────────────┘
 ```
+
+## Addendum: Finder-style sidebar (user feedback after first run)
+
+The keymap list kept its bottom toolbar (+, duplicate, −, ☆) while the macro list had a "+" in its
+header and a context menu, which looked inconsistent. The user prefers the macro style and wants a
+Finder-like sidebar. **Look-alike** chosen over the real `NavigationSplitView` sidebar, so the
+snapshots keep covering it.
+
+- One scrolling sidebar: "Keymaps" section, then "Macros" section, stacked from the top (Finder's
+  Favorites/Locations), empty space below. No bottom toolbar.
+- Each section header has a "+" button (`keymap.add`, `macros.add`).
+- Keymap rows: context menu Duplicate, Set as Default (disabled when already default), Delete…
+  (disabled when it's the last keymap); the ★ still marks the default. Macro rows: Duplicate, Delete….
+- ⌫ on the selected row (keymap or macro) asks to delete it, using the existing confirmation.
+- Read-only mode disables "+" and every menu item.
