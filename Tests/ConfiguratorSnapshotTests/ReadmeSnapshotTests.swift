@@ -26,11 +26,11 @@ struct ReadmeSnapshotTests {
   }
 
   @Test func readmeBase() throws {
-    assertLight(try window(layer: .base))
+    try assertLight(window(layer: .base))
   }
 
   @Test func readmeMod() throws {
-    assertLight(try window(layer: .mod))
+    try assertLight(window(layer: .mod))
   }
 
   private func assertLight(_ view: some View, testName: String = #function) {

@@ -23,7 +23,7 @@ struct ShellSnapshotTests {
       withUSLabels(AppFeature.State(status: StatusFeature.State(
         helper: .running(HelperStatus(activeKeymapID: Keymap.starterID, permissions: granted)),
         registration: .enabled,
-      daemonRegistration: .enabled
+        daemonRegistration: .enabled
       )))
     }
     assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))

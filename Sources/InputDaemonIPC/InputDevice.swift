@@ -22,12 +22,12 @@ public struct InputDevice: Codable, Equatable, Sendable, Identifiable {
   }
 }
 
-extension InputDevice {
-  public static func encode(_ devices: [InputDevice]) throws -> Data {
+public extension InputDevice {
+  static func encode(_ devices: [InputDevice]) throws -> Data {
     try JSONEncoder().encode(devices)
   }
 
-  public static func decode(_ data: Data) throws -> [InputDevice] {
+  static func decode(_ data: Data) throws -> [InputDevice] {
     try JSONDecoder().decode([InputDevice].self, from: data)
   }
 }

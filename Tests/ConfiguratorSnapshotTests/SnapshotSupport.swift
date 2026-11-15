@@ -56,7 +56,9 @@ let granted = PermissionStatus(accessibility: true)
 /// registration and a helper that never reports.
 func fixedDependencies(fileData: Data? = nil, starterOnly: Bool = false) throws -> (inout DependencyValues) -> Void {
   var configuration = Configuration.starter
-  if !starterOnly { configuration.keymaps.append(Keymap(id: codingID, name: "Coding", abbreviation: "COD")) }
+  if !starterOnly {
+    configuration.keymaps.append(Keymap(id: codingID, name: "Coding", abbreviation: "COD"))
+  }
   let data = try fileData ?? Configuration.encoder.encode(configuration)
   let files = LockIsolated([AppIdentifiers.configurationURL: data])
   let defaults = UncheckedSendable(UserDefaults(suiteName: "ConfiguratorSnapshotTests-\(UUID().uuidString)")!)
@@ -64,7 +66,7 @@ func fixedDependencies(fileData: Data? = nil, starterOnly: Bool = false) throws 
     $0.defaultFileStorage = .inMemory(fileSystem: files)
     $0.defaultAppStorage = defaults.value
     $0.helperRegistration = HelperRegistrationClient(status: { .enabled }, register: {}, unregister: {},
-      daemonStatus: { .enabled }, registerDaemon: {}, unregisterDaemon: {})
+                                                     daemonStatus: { .enabled }, registerDaemon: {}, unregisterDaemon: {})
     $0.helperClient = HelperClient(states: { AsyncStream { _ in } }, setPaused: { _ in }, start: {})
     $0.systemSettings = SystemSettingsClient(open: { _ in })
     $0.keyboardDetection = KeyboardDetectionClient(keyboards: { [] })

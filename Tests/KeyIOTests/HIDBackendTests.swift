@@ -43,7 +43,9 @@ struct HIDBackendTests {
   func eventually(_ condition: () -> Bool) async {
     for _ in 0 ..< 10000 {
       backend.drain()
-      if condition() { return }
+      if condition() {
+        return
+      }
       await Task.yield()
     }
   }
@@ -200,7 +202,13 @@ struct HIDBackendTests {
   @Test func outputWithoutKeyboardsIsDropped() throws {
     try startCapturing([])
     backend.post([OutputEvent(key: .a, isDown: true, modifiers: [])])
-    #expect(log.entries.allSatisfy { if case .report = $0 { false } else { true } })
+    #expect(log.entries.allSatisfy {
+      if case .report = $0 {
+        false
+      } else {
+        true
+      }
+    })
   }
 
   // MARK: Capture, heartbeat, disconnects
@@ -286,7 +294,13 @@ struct HIDBackendTests {
     #expect(log.reports(1).last == emptyReport)
     #expect(log.reports(2).last == emptyReport)
     let entries = log.entries
-    let lastReport = try #require(entries.lastIndex { if case .report = $0 { true } else { false } })
+    let lastReport = try #require(entries.lastIndex {
+      if case .report = $0 {
+        true
+      } else {
+        false
+      }
+    })
     let stop = try #require(entries.firstIndex(of: .stopCapture))
     #expect(lastReport < stop, "release first, then hand the keyboards back")
 

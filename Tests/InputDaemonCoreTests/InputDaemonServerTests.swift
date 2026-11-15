@@ -9,8 +9,13 @@ import Testing
 private final class RecordingClient: NSObject, InputDaemonClientXPCProtocol, Sendable {
   private let received = Mutex<[RawKeyEvent]>([])
   private let reports = Mutex<[[InputDevice]]>([])
-  var events: [RawKeyEvent] { received.withLock { $0 } }
-  var deviceReports: [[InputDevice]] { reports.withLock { $0 } }
+  var events: [RawKeyEvent] {
+    received.withLock { $0 }
+  }
+
+  var deviceReports: [[InputDevice]] {
+    reports.withLock { $0 }
+  }
 
   func devicesChanged(_ data: Data) {
     guard let decoded = try? InputDevice.decode(data) else { return }
@@ -86,7 +91,9 @@ private struct Peer: Sendable {
     return await withCheckedContinuation { continuation in
       @Sendable func resume(_ value: Bool?) {
         let first = once.swap(true) == false
-        if first { continuation.resume(returning: value) }
+        if first {
+          continuation.resume(returning: value)
+        }
       }
       let proxy = connection.remoteObjectProxyWithErrorHandler { _ in resume(nil) } as! any InputDaemonXPCProtocol
       proxy.heartbeat { resume($0) }
@@ -96,7 +103,9 @@ private struct Peer: Sendable {
 
 private func eventually(_ condition: @Sendable () -> Bool) async -> Bool {
   for _ in 0 ..< 200 {
-    if condition() { return true }
+    if condition() {
+      return true
+    }
     try? await Task.sleep(for: .milliseconds(10))
   }
   return condition()
@@ -108,7 +117,7 @@ struct InputDaemonServerTests {
   let listener = NSXPCListener.anonymous()
   let server: InputDaemonServer
   /// The console user's uid the server sees; the test process's own by default.
-  fileprivate let consoleUser = Box<uid_t?>(getuid())
+  private let consoleUser = Box<uid_t?>(getuid())
 
   init() {
     controller = CaptureController(seizer: seizer, clock: TestClock())
@@ -324,8 +333,8 @@ struct InputDaemonServerTests {
 struct InputDaemonServerUpdateTests {
   let controller = CaptureController(seizer: FakeHIDSeizer(devices: [keyboard(1)]), clock: TestClock())
   let listener = NSXPCListener.anonymous()
-  fileprivate let changed = Box(false)
-  fileprivate let handlerCalls = Box(0)
+  private let changed = Box(false)
+  private let handlerCalls = Box(0)
   let server: InputDaemonServer
 
   init() {

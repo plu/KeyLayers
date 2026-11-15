@@ -65,7 +65,9 @@ public struct VirtualKeyboardState: Equatable, Sendable {
   public init() {}
 
   /// Modifier-key outputs currently down on this keyboard.
-  public var explicitModifiers: Modifiers { explicit }
+  public var explicitModifiers: Modifiers {
+    explicit
+  }
 
   public static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.explicit == rhs.explicit && lhs.fnDown == rhs.fnDown && lhs.dropped == rhs.dropped
@@ -80,10 +82,14 @@ public struct VirtualKeyboardState: Equatable, Sendable {
     guard !event.isRepeat else { return nil }
     if let modifier = event.key.modifier {
       let flag = Modifiers(modifier)
-      if event.isDown { explicit.insert(flag) } else { explicit.remove(flag) }
+      if event.isDown {
+        explicit.insert(flag)
+      } else {
+        explicit.remove(flag)
+      }
     } else if event.key == .fn {
       fnDown = event.isDown
-    } else if event.key.page == 0x07, (0x04...0xDF).contains(event.key.usage) {
+    } else if event.key.page == 0x07, (0x04 ... 0xDF).contains(event.key.usage) {
       let usage = UInt8(event.key.usage)
       // Physical/synthetic modifiers arrive as their own modifier-key events (here or on another
       // virtual keyboard); only true remap extras are tied to this key.
@@ -99,14 +105,22 @@ public struct VirtualKeyboardState: Equatable, Sendable {
       } else if dropped.remove(usage) == nil {
         held.removeAll { $0.usage == usage }
       }
-    } else if event.key.page == 0x0C, (1...0x3FF).contains(event.key.usage) {
+    } else if event.key.page == 0x0C, (1 ... 0x3FF).contains(event.key.usage) {
       // Only the latest press is held; an up of a replaced key changes nothing.
       let usage = event.key.usage
-      if event.isDown { consumer = usage } else if consumer == usage { consumer = 0 }
+      if event.isDown {
+        consumer = usage
+      } else if consumer == usage {
+        consumer = 0
+      }
       return consumerReportIfChanged()
-    } else if event.key.page == 0x01, (1...0xFF).contains(event.key.usage) {
+    } else if event.key.page == 0x01, (1 ... 0xFF).contains(event.key.usage) {
       let usage = UInt8(event.key.usage)
-      if event.isDown { system = usage } else if system == usage { system = 0 }
+      if event.isDown {
+        system = usage
+      } else if system == usage {
+        system = 0
+      }
       return systemReportIfChanged()
     } else {
       return nil
@@ -122,7 +136,7 @@ public struct VirtualKeyboardState: Equatable, Sendable {
     fnDown = false
     consumer = 0
     system = 0
-    return [emitIfChanged(), consumerReportIfChanged(), systemReportIfChanged()].compactMap { $0 }
+    return [emitIfChanged(), consumerReportIfChanged(), systemReportIfChanged()].compactMap(\.self)
   }
 
   private mutating func consumerReportIfChanged() -> Data? {
@@ -142,7 +156,9 @@ public struct VirtualKeyboardState: Equatable, Sendable {
     var report = Data(repeating: 0, count: Self.reportSize)
     report[0] = 1
     report[1] = explicit.union(extra).rawValue
-    for (slot, key) in held.enumerated() { report[3 + slot] = key.usage }
+    for (slot, key) in held.enumerated() {
+      report[3 + slot] = key.usage
+    }
     report[Self.reportSize - 1] = fnDown ? 1 : 0
     guard report != lastReport else { return nil }
     lastReport = report

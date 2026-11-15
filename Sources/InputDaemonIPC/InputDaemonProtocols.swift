@@ -16,12 +16,12 @@ import Foundation
   func keyEvents(_ events: Data)
 }
 
-extension NSXPCInterface {
-  public static var inputDaemon: NSXPCInterface {
+public extension NSXPCInterface {
+  static var inputDaemon: NSXPCInterface {
     NSXPCInterface(with: InputDaemonXPCProtocol.self)
   }
 
-  public static var inputDaemonClient: NSXPCInterface {
+  static var inputDaemonClient: NSXPCInterface {
     NSXPCInterface(with: InputDaemonClientXPCProtocol.self)
   }
 }

@@ -125,7 +125,7 @@ private final class ClientReceiver: NSObject, InputDaemonClientXPCProtocol {
 
   func devicesChanged(_ devices: Data) {
     do {
-      onDevicesChanged(try InputDevice.decode(devices))
+      try onDevicesChanged(InputDevice.decode(devices))
     } catch {
       logger.error("undecodable device report from the input daemon")
     }
@@ -133,7 +133,7 @@ private final class ClientReceiver: NSObject, InputDaemonClientXPCProtocol {
 
   func keyEvents(_ events: Data) {
     do {
-      onKeyEvents(try RawKeyEvent.decode(events))
+      try onKeyEvents(RawKeyEvent.decode(events))
     } catch {
       logger.error("undecodable key events from the input daemon")
     }

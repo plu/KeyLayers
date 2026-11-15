@@ -53,13 +53,13 @@ extension RawKeyEvent {
     }
   }
 
-  private static func append<T: FixedWidthInteger>(_ value: T, to data: inout Data) {
+  private static func append(_ value: some FixedWidthInteger, to data: inout Data) {
     withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) }
   }
 
   private static func read<T: FixedWidthInteger>(_: T.Type, _ bytes: [UInt8], _ offset: Int) -> T {
     var value: T = 0
-    for i in 0..<MemoryLayout<T>.size {
+    for i in 0 ..< MemoryLayout<T>.size {
       value |= T(truncatingIfNeeded: bytes[offset + i]) << (8 * i)
     }
     return value

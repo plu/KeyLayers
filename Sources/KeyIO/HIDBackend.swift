@@ -193,7 +193,9 @@ public final class HIDBackend: KeyInputOutput, @unchecked Sendable {
       for event in events {
         // Capture off: the physical keys belong to the system again, so a down sent now would never
         // see its up. Ups and releases still go out.
-        if event.isDown, !captureActive { continue }
+        if event.isDown, !captureActive {
+          continue
+        }
         guard let fallback = fallbackDevice() else { return }
         emit(event, on: router.route(event, source: source, fallback: fallback))
       }
@@ -433,7 +435,9 @@ public final class HIDBackend: KeyInputOutput, @unchecked Sendable {
     guard keyboards[device] != nil else { return }
     // macOS merges modifier state across keyboards.
     let heldElsewhere = keyboards.reduce(into: Modifiers()) { result, entry in
-      if entry.key != device { result.formUnion(entry.value.state.explicitModifiers) }
+      if entry.key != device {
+        result.formUnion(entry.value.state.explicitModifiers)
+      }
     }
     if let report = keyboards[device]?.state.apply(event, heldElsewhere: heldElsewhere) {
       keyboards[device]?.keyboard.send(report)

@@ -25,7 +25,7 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled ; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
     #expect(fakes.registrationCalls.value == ["register"])
     await task.cancel()
   }
@@ -36,7 +36,7 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled ; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
     #expect(fakes.daemonCalls.value == ["register"])
     #expect(fakes.registrationCalls.value == ["register"])
     await task.cancel()
@@ -50,7 +50,7 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled ; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
     #expect(fakes.registrationCalls.value == ["register"])
     #expect(fakes.daemonCalls.value == ["register"])
     await task.cancel()
@@ -63,7 +63,7 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled ; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
     #expect(fakes.daemonCalls.value.isEmpty)
     await task.cancel()
   }
@@ -75,7 +75,7 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .requiresApproval ; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) { $0.status.registration = .requiresApproval; $0.status.daemonRegistration = .enabled }
     #expect(fakes.registrationCalls.value.isEmpty)
     await task.cancel()
   }

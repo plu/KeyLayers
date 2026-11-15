@@ -10,7 +10,9 @@ public struct OutputRouter: Sendable {
 
   public mutating func route(_ event: OutputEvent, source: UInt64?, fallback: UInt64) -> UInt64 {
     if event.isDown {
-      if event.isRepeat, let device = downDevice[event.key] { return device }
+      if event.isRepeat, let device = downDevice[event.key] {
+        return device
+      }
       let device = source ?? fallback
       downDevice[event.key] = device
       return device
@@ -21,7 +23,9 @@ public struct OutputRouter: Sendable {
   /// Keys that were down on an unplugged device; they are no longer tracked.
   public mutating func forget(device: UInt64) -> Set<KeyID> {
     let keys = Set(downDevice.filter { $0.value == device }.keys)
-    for key in keys { downDevice.removeValue(forKey: key) }
+    for key in keys {
+      downDevice.removeValue(forKey: key)
+    }
     return keys
   }
 }

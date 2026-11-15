@@ -4,8 +4,13 @@ import RemapEngine
 import Testing
 
 struct OutputRouterTests {
-  private func down(_ key: KeyID) -> OutputEvent { OutputEvent(key: key, isDown: true, modifiers: []) }
-  private func up(_ key: KeyID) -> OutputEvent { OutputEvent(key: key, isDown: false, modifiers: []) }
+  private func down(_ key: KeyID) -> OutputEvent {
+    OutputEvent(key: key, isDown: true, modifiers: [])
+  }
+
+  private func up(_ key: KeyID) -> OutputEvent {
+    OutputEvent(key: key, isDown: false, modifiers: [])
+  }
 
   @Test func downGoesToSource() {
     var router = OutputRouter()

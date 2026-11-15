@@ -251,7 +251,9 @@ public struct KeySearchResult: Equatable, Identifiable, Sendable {
 
   /// What VoiceOver reads: just the name for glyph-labelled media keys, else "label, name".
   var accessibilityLabel: String {
-    if group != nil, let name { return name }
+    if group != nil, let name {
+      return name
+    }
     return name.map { "\(label), \($0)" } ?? label
   }
 }

@@ -86,6 +86,7 @@ termSource.setEventHandler {
   _ = server.flush(timeout: flushTimeout)
   exit(0)
 }
+
 termSource.resume()
 
 dispatchMain()

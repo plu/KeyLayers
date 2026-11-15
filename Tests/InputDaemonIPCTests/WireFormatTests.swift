@@ -1,7 +1,6 @@
 import Foundation
-import Testing
-
 @testable import InputDaemonIPC
+import Testing
 
 struct WireFormatTests {
   @Test func rawKeyEventsRoundTrip() throws {
@@ -26,7 +25,8 @@ struct WireFormatTests {
       InputDevice(id: 42, name: "K", vendorID: 0x5AC, productID: 0x342, countryCode: 13, seizeError: nil),
       InputDevice(
         id: 43, name: "L", vendorID: 1, productID: 2, countryCode: 0,
-        seizeError: Int32(bitPattern: 0xe00002c5)),
+        seizeError: Int32(bitPattern: 0xE000_02C5)
+      ),
     ]
     #expect(try InputDevice.decode(InputDevice.encode(devices)) == devices)
   }

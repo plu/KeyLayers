@@ -56,7 +56,9 @@ public struct KeyCapContent: Equatable, Sendable {
 
   /// What's printed on `key`: its input-source label, else its symbol, else its usage.
   static func label(for key: KeyID, labels: [KeyID: String]) -> String {
-    if KeyID.mediaKeys.contains(key) { return StaticKeyLabels.label(for: key) ?? key.description }
+    if KeyID.mediaKeys.contains(key) {
+      return StaticKeyLabels.label(for: key) ?? key.description
+    }
     return labels[key] ?? StaticKeyLabels.label(for: key) ?? key.description
   }
 
@@ -70,8 +72,12 @@ public struct KeyCapContent: Equatable, Sendable {
   /// label first (Ö, not "Semicolon", on German), then the key's name, then the static label.
   static func spokenLabel(for key: KeyID, labels: [KeyID: String]) -> String {
     let isNonPrinting = KeyID.mediaKeys.contains(key) || StaticKeyLabels.label(for: key) != nil
-    if isNonPrinting, let name = KeyNames.name(for: key) { return name }
-    if !KeyID.mediaKeys.contains(key), let label = labels[key] { return label }
+    if isNonPrinting, let name = KeyNames.name(for: key) {
+      return name
+    }
+    if !KeyID.mediaKeys.contains(key), let label = labels[key] {
+      return label
+    }
     return KeyNames.name(for: key) ?? label(for: key, labels: labels)
   }
 

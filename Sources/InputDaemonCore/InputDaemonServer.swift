@@ -128,7 +128,9 @@ public final class InputDaemonServer: NSObject, NSXPCListenerDelegate, Sendable 
     guard connection.effectiveUserIdentifier == consoleUser else {
       let now = ContinuousClock.now
       let shouldLog = lastRefusalLog.withLock { last in
-        if let last, now - last < Self.refusalLogInterval { return false }
+        if let last, now - last < Self.refusalLogInterval {
+          return false
+        }
         last = now
         return true
       }

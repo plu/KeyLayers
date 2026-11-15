@@ -37,8 +37,8 @@ menu bar space, and the user should choose what appears there.
   - keymap → abbreviation; layer → layer name.
   - Paused never appears as text; the icon alone signals it. While paused the layer is left out
     (no layer is active); the keymap still shows if enabled.
-  - **Builder's call:** pick a paused symbol more distinct than today's `keyboard.badge.ellipsis`,
-    checked in SF Symbols at menu bar size; keep the current one if nothing reads better.
+  - While paused the keyboard icon is dimmed (template image at 40% alpha, follows light/dark)
+    instead of the old `keyboard.badge.ellipsis` badge.
   - Nothing enabled → empty string.
   - Before the runtime reports a status: "—" only if some text is enabled, else empty.
 - `MenuBarLabel` omits the `Text` when the title is empty, and keeps an accessibility label

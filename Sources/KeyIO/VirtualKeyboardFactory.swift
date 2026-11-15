@@ -25,8 +25,14 @@ public struct VirtualKeyboardIdentity: Equatable, Sendable {
   public static let productID: UInt32 = 0x4C01
   public static let uniqueIDPrefix = "com.plunien.keylayers.virtual."
 
-  public var vendorID: UInt32 { Self.vendorID }
-  public var productID: UInt32 { Self.productID }
+  public var vendorID: UInt32 {
+    Self.vendorID
+  }
+
+  public var productID: UInt32 {
+    Self.productID
+  }
+
   public var uniqueID: String
   public var product: String
   /// The physical keyboard's HID country code, mirrored so macOS picks the same layout type

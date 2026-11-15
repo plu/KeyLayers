@@ -66,7 +66,7 @@ struct VirtualKeyboardStateTests {
     while index < bytes.count {
       let prefix = bytes[index]
       let length = prefix & 0x03 == 3 ? 4 : Int(prefix & 0x03)
-      let data = bytes[(index + 1)..<(index + 1 + length)]
+      let data = bytes[(index + 1) ..< (index + 1 + length)]
       let value = data.enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
       switch prefix & 0xFC {
       case 0x84: currentID = value
@@ -125,10 +125,14 @@ struct VirtualKeyboardStateTests {
     var state = VirtualKeyboardState()
     let keys: [KeyID] = [.a, .b, .c, .d, .e, .f, .g]
     var downs: [Data?] = []
-    for key in keys { downs.append(state.apply(down(key))) }
+    for key in keys {
+      downs.append(state.apply(down(key)))
+    }
     #expect(downs[6] == nil)
     var ups: [Data?] = []
-    for key in keys { ups.append(state.apply(up(key))) }
+    for key in keys {
+      ups.append(state.apply(up(key)))
+    }
     #expect(ups[6] == nil)
     #expect(ups[5] == Data([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
   }

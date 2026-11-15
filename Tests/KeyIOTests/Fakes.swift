@@ -44,7 +44,9 @@ final class CallLog: @unchecked Sendable {
 
   func reports(_ device: UInt64) -> [Data] {
     entries.compactMap {
-      if case let .report(id, data) = $0, id == device { return data }
+      if case let .report(id, data) = $0, id == device {
+        return data
+      }
       return nil
     }
   }
@@ -89,8 +91,14 @@ final class FakeDaemon: DaemonConnection, @unchecked Sendable {
     lock.withLock { connectFailures = count }
   }
 
-  func startCapture() { log.append(.startCapture) }
-  func stopCapture() { log.append(.stopCapture) }
+  func startCapture() {
+    log.append(.startCapture)
+  }
+
+  func stopCapture() {
+    log.append(.stopCapture)
+  }
+
   /// Replies at once with `isCapturing` (default `true`).
   func heartbeat(reply: @escaping @Sendable (Bool) -> Void) {
     log.append(.heartbeat)
@@ -102,7 +110,10 @@ final class FakeDaemon: DaemonConnection, @unchecked Sendable {
     get { lock.withLock { capturing } }
     set { lock.withLock { capturing = newValue } }
   }
-  func disconnect() { log.append(.disconnect) }
+
+  func disconnect() {
+    log.append(.disconnect)
+  }
 
   func report(_ devices: [InputDevice]) {
     lock.withLock { devicesChanged }?(devices)
@@ -151,12 +162,16 @@ final class FakeVirtualKeyboardFactory: VirtualKeyboardFactory, @unchecked Senda
 
   func preflight() throws {
     log.append(.preflight)
-    if let preflightError { throw preflightError }
+    if let preflightError {
+      throw preflightError
+    }
   }
 
   func make(for device: InputDevice) throws -> any VirtualKeyboard {
     log.append(.make(device.id))
-    if failingDevices.contains(device.id) { throw KeyIOError.virtualKeyboardUnavailable }
+    if failingDevices.contains(device.id) {
+      throw KeyIOError.virtualKeyboardUnavailable
+    }
     lock.withLock { madeDevices.append(device) }
     return FakeVirtualKeyboard(deviceID: device.id, log: log)
   }
@@ -223,7 +238,9 @@ func report(modifiers: UInt8 = 0, _ keys: UInt8...) -> Data {
   var data = Data(repeating: 0, count: 10)
   data[0] = 1
   data[1] = modifiers
-  for (slot, key) in keys.enumerated() { data[3 + slot] = key }
+  for (slot, key) in keys.enumerated() {
+    data[3 + slot] = key
+  }
   return data
 }
 
