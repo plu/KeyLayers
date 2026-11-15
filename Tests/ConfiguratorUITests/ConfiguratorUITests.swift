@@ -222,7 +222,7 @@ final class ConfiguratorUITests: XCTestCase {
 
   private func waitFor(_ element: XCUIElement, containing expected: String, timeout: TimeInterval = 5) -> Bool {
     waitUntil(timeout: timeout) { self.text(of: element).contains(expected) }
-  }
+  } 
 
   private func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
     waitUntil(timeout: timeout) { !element.exists }

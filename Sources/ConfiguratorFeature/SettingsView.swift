@@ -92,6 +92,8 @@ public struct SettingsView: View {
         }
       }
       .formStyle(.grouped)
+      // One background for the whole sheet, so the button row doesn't sit on a separate band.
+      .scrollContentBackground(.hidden)
 
       HStack {
         Spacer()
@@ -99,7 +101,9 @@ public struct SettingsView: View {
           .keyboardShortcut(.defaultAction)
           .accessibilityIdentifier("settings.done")
       }
-      .padding([.horizontal, .bottom], 20)
+      .padding(.horizontal, 20)
+      .padding(.top, 4)
+      .padding(.bottom, 16)
     }
     .frame(width: 460, height: 430)
   }
