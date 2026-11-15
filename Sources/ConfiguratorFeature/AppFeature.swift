@@ -71,86 +71,90 @@ public struct AppFeature: Sendable {
   public init() {}
 
   public var body: some ReducerOf<Self> {
-    Scope(state: \.keymapList, action: \.keymapList) {
-      KeymapListFeature()
-    }
-    .onChange(of: \.keymapList.selection) { _, selection in
-      Reduce { state, _ in
-        state.editor = selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
-        // A keymap and a macro are never selected together.
-        if selection != nil {
+    // The editors' `ifLet`s wrap every reducer that can close them, so they run first and cancel an
+    // editor's effects (e.g. the macro editor's configuration watcher) when its state goes away.
+    CombineReducers {
+      Scope(state: \.keymapList, action: \.keymapList) {
+        KeymapListFeature()
+      }
+      .onChange(of: \.keymapList.selection) { _, selection in
+        Reduce { state, _ in
+          state.editor = selection.flatMap { KeymapEditorFeature.State(keymapID: $0) }
+          // A keymap and a macro are never selected together.
+          if selection != nil {
+            state.macroList.selection = nil
+            state.macroEditor = nil
+          }
+          return .none
+        }
+      }
+      Scope(state: \.macroList, action: \.macroList) {
+        MacroListFeature()
+      }
+      .onChange(of: \.macroList.selection) { _, selection in
+        Reduce { state, _ in
+          if selection != nil {
+            state.keymapList.selection = nil
+            state.editor = nil
+          }
+          // A selection whose macro is gone shows nothing rather than a stale editor.
+          if let selection, state.configuration.macros[id: selection] != nil {
+            state.macroEditor = MacroEditorFeature.State(macroID: selection)
+          } else {
+            state.macroList.selection = nil
+            state.macroEditor = nil
+          }
+          return .none
+        }
+      }
+      Scope(state: \.status, action: \.status) {
+        StatusFeature()
+      }
+      Scope(state: \.importExport, action: \.importExport) {
+        ImportExportFeature()
+      }
+      Reduce { state, action in
+        switch action {
+        case .task:
+          return .run { send in
+            // macOS reports a never-registered service as `.notFound`, so that counts too; a plist that
+            // is really missing makes `register()` throw, which is reported below.
+            // First launch (or "launch at login" back on): register the helper with launchd.
+            @Shared(.launchHelperAtLogin) var launchAtLogin
+            if launchAtLogin, needsRegistration(registration.status()) {
+              do {
+                try registration.register()
+              } catch {
+                await send(.status(.registrationFailed(HelperRegistrationClient.describe(error))))
+              }
+            }
+            // The root input daemon follows the same rules.
+            if launchAtLogin, needsRegistration(registration.daemonStatus()) {
+              do {
+                try registration.registerDaemon()
+              } catch {
+                await send(.status(.daemonRegistrationFailed(HelperRegistrationClient.describeDaemon(error))))
+              }
+            }
+            await send(.status(.task))
+          }
+
+        case .settingsButtonTapped:
+          state.settings = SettingsFeature.State()
+          return .none
+
+        case let .importExport(.delegate(.selectKeymap(id))):
+          // Through the list, so the editor follows the selection.
+          return .send(.keymapList(.binding(.set(\.selection, id))))
+
+        case .macroEditor(.delegate(.macroRemoved)):
           state.macroList.selection = nil
           state.macroEditor = nil
-        }
-        return .none
-      }
-    }
-    Scope(state: \.macroList, action: \.macroList) {
-      MacroListFeature()
-    }
-    .onChange(of: \.macroList.selection) { _, selection in
-      Reduce { state, _ in
-        if selection != nil {
-          state.keymapList.selection = nil
-          state.editor = nil
-        }
-        // A selection whose macro is gone shows nothing rather than a stale editor.
-        if let selection, state.configuration.macros[id: selection] != nil {
-          state.macroEditor = MacroEditorFeature.State(macroID: selection)
-        } else {
-          state.macroList.selection = nil
-          state.macroEditor = nil
-        }
-        return .none
-      }
-    }
-    Scope(state: \.status, action: \.status) {
-      StatusFeature()
-    }
-    Scope(state: \.importExport, action: \.importExport) {
-      ImportExportFeature()
-    }
-    Reduce { state, action in
-      switch action {
-      case .task:
-        return .run { send in
-          // macOS reports a never-registered service as `.notFound`, so that counts too; a plist that
-          // is really missing makes `register()` throw, which is reported below.
-          // First launch (or "launch at login" back on): register the helper with launchd.
-          @Shared(.launchHelperAtLogin) var launchAtLogin
-          if launchAtLogin, needsRegistration(registration.status()) {
-            do {
-              try registration.register()
-            } catch {
-              await send(.status(.registrationFailed(HelperRegistrationClient.describe(error))))
-            }
-          }
-          // The root input daemon follows the same rules.
-          if launchAtLogin, needsRegistration(registration.daemonStatus()) {
-            do {
-              try registration.registerDaemon()
-            } catch {
-              await send(.status(.daemonRegistrationFailed(HelperRegistrationClient.describeDaemon(error))))
-            }
-          }
-          await send(.status(.task))
-        }
+          return .none
 
-      case .settingsButtonTapped:
-        state.settings = SettingsFeature.State()
-        return .none
-
-      case let .importExport(.delegate(.selectKeymap(id))):
-        // Through the list, so the editor follows the selection.
-        return .send(.keymapList(.binding(.set(\.selection, id))))
-
-      case .macroEditor(.delegate(.macroRemoved)):
-        state.macroList.selection = nil
-        state.macroEditor = nil
-        return .none
-
-      case .keymapList, .macroList, .editor, .macroEditor, .status, .settings, .importExport:
-        return .none
+        case .keymapList, .macroList, .editor, .macroEditor, .status, .settings, .importExport:
+          return .none
+        }
       }
     }
     .ifLet(\.editor, action: \.editor) {

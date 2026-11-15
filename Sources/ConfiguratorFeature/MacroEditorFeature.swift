@@ -17,7 +17,7 @@ public enum MacroStepKind: Sendable, CaseIterable {
 @Reducer
 public struct MacroEditorFeature: Sendable {
   @ObservableState
-  public struct State: Equatable {
+  public struct State: Equatable, Identifiable {
     public let macroID: Macro.ID
     @Shared(.configuration) var configuration: Configuration
     /// The name field. A draft, so that it can be empty while typing; the saved name never is.
@@ -31,6 +31,12 @@ public struct MacroEditorFeature: Sendable {
       self.macroID = macroID
       @Shared(.configuration) var configuration
       name = configuration.macros[id: macroID]?.name ?? ""
+    }
+
+    /// Identifies the editor by its macro, so that the parent's `ifLet` cancels the effects of the
+    /// previous macro's editor when another macro is selected.
+    public var id: Macro.ID {
+      macroID
     }
 
     /// The macro being edited; `nil` once it's gone (deleted, or the file was reloaded without it).
@@ -84,7 +90,7 @@ public struct MacroEditorFeature: Sendable {
   @Dependency(\.keyLabels) var keyLabels
   @Dependency(\.textKeystrokes) var textKeystrokes
 
-  private enum CancelID { case recording }
+  private enum CancelID { case task, recording }
 
   public init() {}
 
@@ -102,14 +108,24 @@ public struct MacroEditorFeature: Sendable {
             }
           },
           // The value travels in the action: the publisher emits before the shared reference returns it.
-          .publisher {
-            configuration.publisher
+          // Awaited rather than a `.publisher` effect: a change made while another action is reduced
+          // (the list deleting this macro) would otherwise be delivered synchronously, after the parent
+          // already closed the editor. Through `send`, a cancelled watcher never delivers.
+          .run { send in
+            let changes = configuration.publisher
               .map { $0.macros[id: macroID] }
               .removeDuplicates()
               .dropFirst()
-              .map { Action.macroChanged(macroID, $0) }
+              // Holds the latest change while `send` is awaited.
+              .buffer(size: 1, prefetch: .keepFull, whenFull: .dropOldest)
+            for await macro in changes.values {
+              await send(.macroChanged(macroID, macro))
+            }
           }
         )
+        // A new `.task` replaces the old watchers. The parent's `ifLet` cancels them when it closes the
+        // editor or switches it to another macro.
+        .cancellable(id: CancelID.task, cancelInFlight: true)
 
       case let .labelsChanged(labels):
         state.labels = labels

@@ -216,6 +216,37 @@ struct AppFeatureTests {
     await task.cancel()
   }
 
+  /// Regression: the editor's configuration watcher must not reach the editor once the list's delete
+  /// has closed it (TCA reported an `ifLet` child action with nil state).
+  @Test func deletingTheSelectedMacroClosesTheEditorQuietly() async throws {
+    var file = Configuration.starter
+    let macro = Macro(id: newID, name: "Greet", steps: [])
+    file.macros = [macro]
+    let fakes = try Fakes(file: file)
+    let store = makeStore(fakes)
+    await store.send(.macroList(.binding(.set(\.selection, macro.id)))) {
+      $0.macroList.selection = macro.id
+      $0.keymapList.selection = nil
+      $0.editor = nil
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: macro.id) }
+    }
+    let task = await store.send(.macroEditor(.task)) { $0.macroEditor?.labels = fakes.labels.value }
+
+    await store.send(.macroList(.deleteTapped(macro.id))) {
+      $0.macroList.alert = .confirmDelete(macro, keyCount: 0)
+    }
+    await store.send(.macroList(.alert(.presented(.confirmDelete(macro.id))))) {
+      $0.macroList.alert = nil
+      $0.$configuration.withLock { $0.removeMacro(macro.id) }
+      $0.macroList.selection = nil
+      $0.macroEditor = nil
+    }
+    await task.cancel()
+    await store.finish()
+    #expect(store.state.macroEditor == nil)
+    #expect(store.state.macroList.selection == nil)
+  }
+
   @Test func switchingMacrosEditsTheNewOne() async throws {
     var file = Configuration.starter
     let first = Macro(id: newID, name: "Greet", steps: [])
@@ -239,9 +270,9 @@ struct AppFeatureTests {
     let secondTask = await store.send(.macroEditor(.task)) { $0.macroEditor?.labels = fakes.labels.value }
     #expect(store.state.macroEditor?.name == "Sign")
 
-    // The first macro's watcher may still be running; its removal doesn't close the second's editor.
+    // The second editor's task replaced the first macro's watcher: its removal reports nothing and
+    // doesn't close the second's editor.
     store.state.$configuration.withLock { _ = $0.macros.remove(id: first.id) }
-    await store.receive(\.macroEditor.macroChanged)
     await firstTask.cancel()
     await secondTask.cancel()
     #expect(store.state.macroList.selection == second.id)
