@@ -13,15 +13,20 @@ public struct MacroEnvironment: Sendable {
   public var strokes: @Sendable (Character) -> [TextStroke]?
   /// Called outside the runtime's lock.
   public var capsLockIsOn: @Sendable () -> Bool
+  /// Brings the table behind `strokes` up to date with the selected input source. Awaited outside the
+  /// runtime's lock before each run that types text; it must never block the calling thread.
+  public var refreshStrokes: @Sendable () async -> Void
 
   public init(
     clock: any Clock<Duration>,
     strokes: @escaping @Sendable (Character) -> [TextStroke]?,
-    capsLockIsOn: @escaping @Sendable () -> Bool
+    capsLockIsOn: @escaping @Sendable () -> Bool,
+    refreshStrokes: @escaping @Sendable () async -> Void = {}
   ) {
     self.clock = clock
     self.strokes = strokes
     self.capsLockIsOn = capsLockIsOn
+    self.refreshStrokes = refreshStrokes
   }
 }
 
@@ -86,6 +91,10 @@ final class MacroPlayer: @unchecked Sendable {
 
   private func play(_ generation: Int, clock: some Clock<Duration>) async {
     while let steps = lock.withLock({ startNextRun(generation) }) {
+      if steps.contains(where: MacroScript.typesText) {
+        // An input source switch whose notification hasn't arrived yet is caught here.
+        await environment.refreshStrokes()
+      }
       var deadline = clock.now
       for step in steps {
         guard await perform(step, generation, clock: clock, deadline: &deadline) else { return }
@@ -105,7 +114,7 @@ final class MacroPlayer: @unchecked Sendable {
     clock: C,
     deadline: inout C.Instant
   ) async -> Bool {
-    let turnsCapsLockOff = MacroScript.needsCapsLockOff(step) && environment.capsLockIsOn()
+    let turnsCapsLockOff = MacroScript.typesText(step) && environment.capsLockIsOn()
     if turnsCapsLockOff {
       guard await tapCapsLock(needsRestore: true, generation, clock: clock, deadline: &deadline) else {
         return false

@@ -63,8 +63,12 @@ let coffeeMacro = Macro(id: coffeeMacroID, name: "Coffee", steps: [
 /// Types the ASCII characters and nothing else, whatever the input source of the machine.
 let asciiTextKeystrokes = TextKeystrokeClient(
   strokes: { $0.isASCII ? [TextStroke(key: .a, modifiers: [])] : nil },
-  capsLockIsOn: { false }
+  capsLockIsOn: { false },
+  refresh: {}
 )
+
+/// What the macro editor finds for `coffeeMacro` with `asciiTextKeystrokes`.
+let coffeeUntypeable: [Int: [Character]] = [1: ["☕"]]
 
 /// Fixed, inert dependencies: a configuration file with two keymaps (or `fileData`), an enabled
 /// registration and a helper that never reports.
@@ -90,6 +94,7 @@ func fixedDependencies(
     $0.systemSettings = SystemSettingsClient(open: { _ in })
     $0.keyboardDetection = KeyboardDetectionClient(keyboards: { [] })
     $0.keyLabels = KeyLabelClient(labels: { StaticKeyLabels.usANSI }, changes: { .finished })
+    $0.textKeystrokes = asciiTextKeystrokes
   }
 }
 

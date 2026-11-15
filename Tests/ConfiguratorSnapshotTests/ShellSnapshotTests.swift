@@ -43,11 +43,10 @@ struct ShellSnapshotTests {
       state.keymapList.selection = nil
       state.editor = nil
       state.macroEditor?.labels = StaticKeyLabels.usANSI
+      state.macroEditor?.untypeable = coffeeUntypeable
       return state
     }
-    withDependencies { $0.textKeystrokes = asciiTextKeystrokes } operation: {
-      assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))
-    }
+    assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))
   }
 
   @Test func appWindowReadOnly() throws {

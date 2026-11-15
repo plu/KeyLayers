@@ -31,22 +31,35 @@ struct TextKeystrokesTests {
   }
 }
 
+/// Serialized: both tests start from no table.
+@Suite(.serialized)
 struct LiveTextKeystrokesTests {
   private static let characters: [Character] = ["a", "A", "1", "@", "é", "\n", "\t"]
 
+  /// The current input source's table, built directly.
+  @MainActor private static func expectedStrokes() throws -> [[TextStroke]?] {
+    let current = try #require(KeyboardLayoutData.current())
+    let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
+    return characters.map { table.strokes(for: $0) }
+  }
+
+  /// On the main thread (the configurator's reducers) there is no waiting for a warm-up: the first
+  /// call builds the table right there.
+  @MainActor @Test func mainThreadCallBuildsTheTableAtOnce() throws {
+    LiveTextKeystrokes.reset()
+    #expect(try Self.characters.map { LiveTextKeystrokes.strokes(for: $0) } == (Self.expectedStrokes()))
+  }
+
   /// `strokes` never waits for the main thread: with the main thread blocked and no table yet, a
   /// background call returns nil at once. Once the main thread is free, the build it scheduled there
-  /// (`LiveTextKeystrokes` asserts main with `dispatchPrecondition`) yields the current layout's table.
+  /// (`LiveTextKeystrokes` asserts the main thread) yields the current layout's table.
   @Test(.timeLimit(.minutes(1)))
   func backgroundCallsNeverBlockAndSeeTheTableOnceBuilt() async throws {
+    LiveTextKeystrokes.reset()
     let whileMainIsBlocked = await Task.detached { Self.strokesWhileMainIsBlocked() }.value
     #expect(whileMainIsBlocked == nil)
 
-    let expected = try await MainActor.run {
-      let current = try #require(KeyboardLayoutData.current())
-      let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
-      return Self.characters.map { table.strokes(for: $0) }
-    }
+    let expected = try await Self.expectedStrokes()
     var live: [[TextStroke]?] = []
     for _ in 0 ..< 200 {
       live = await Task.detached { Self.characters.map { LiveTextKeystrokes.strokes(for: $0) } }.value

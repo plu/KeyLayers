@@ -12,6 +12,9 @@ public struct TextKeystrokeClient: Sendable {
   public var strokes: @Sendable (_ character: Character) -> [TextStroke]? = { _ in nil }
   /// Whether Caps Lock is currently on.
   public var capsLockIsOn: @Sendable () -> Bool = { false }
+  /// Brings the table up to date on the main actor: builds it if there is none, rebuilds it if the
+  /// selected input source changed. Never blocks the caller's thread.
+  public var refresh: @Sendable () async -> Void = {}
 }
 
 extension TextKeystrokeClient: DependencyKey {
@@ -20,7 +23,8 @@ extension TextKeystrokeClient: DependencyKey {
     LiveTextKeystrokes.scheduleBuild()
     return TextKeystrokeClient(
       strokes: { LiveTextKeystrokes.strokes(for: $0) },
-      capsLockIsOn: { CGEventSource.flagsState(.hidSystemState).contains(.maskAlphaShift) }
+      capsLockIsOn: { CGEventSource.flagsState(.hidSystemState).contains(.maskAlphaShift) },
+      refresh: { await MainActor.run { LiveTextKeystrokes.refresh() } }
     )
   }()
 
@@ -29,7 +33,7 @@ extension TextKeystrokeClient: DependencyKey {
   public static let previewValue: TextKeystrokeClient = {
     let us = KeyboardLayoutData.layoutData(inputSourceID: "com.apple.keylayout.US")
       .map { TextKeystrokes(layoutData: $0, keyboardType: UInt32(LMGetKbdType())) }
-    return TextKeystrokeClient(strokes: { us?.strokes(for: $0) }, capsLockIsOn: { false })
+    return TextKeystrokeClient(strokes: { us?.strokes(for: $0) }, capsLockIsOn: { false }, refresh: {})
   }()
 }
 
@@ -44,9 +48,13 @@ public extension DependencyValues {
 /// different ID.
 ///
 /// Text Input Sources calls must run on the main thread, so the table is only ever built there, and
-/// any thread reads it under `state`. `strokes` never blocks: with no table yet it schedules one
-/// asynchronous build on the main queue (at most one pending) and returns nil, so callers may get nil
-/// until the warm-up scheduled when `liveValue` is created has completed.
+/// any thread reads it under `state`. With no table yet, `strokes` builds it right away on the main
+/// thread; any other thread never blocks: it schedules one asynchronous build on the main queue (at
+/// most one pending) and gets nil, so background callers may get nil until the warm-up scheduled when
+/// `liveValue` is created has completed.
+///
+/// Input source changes are observed with `.deliverImmediately`: the helper is an agent app that is
+/// almost never active, and an inactive app's distributed notifications are otherwise held back.
 enum LiveTextKeystrokes {
   private struct Cached {
     var inputSourceID: String
@@ -60,22 +68,38 @@ enum LiveTextKeystrokes {
 
   private static let state = Mutex(State())
 
-  /// Registers for input source changes once, on first use. The center keeps the observer.
+  /// Receives input source changes. Distributed notification centers don't retain observers.
+  private final class InputSourceObserver: NSObject, @unchecked Sendable {
+    @objc func inputSourceChanged(_: Notification) {
+      DispatchQueue.main.async { LiveTextKeystrokes.refresh() }
+    }
+  }
+
+  private static let observer = InputSourceObserver()
+
+  /// Registers for input source changes once, on first use.
   private static let observeInputSourceChanges: Void = {
-    _ = DistributedNotificationCenter.default().addObserver(
-      forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+    DistributedNotificationCenter.default().addObserver(
+      observer,
+      selector: #selector(InputSourceObserver.inputSourceChanged(_:)),
+      name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
       object: nil,
-      queue: .main
-    ) { _ in rebuild() }
+      suspensionBehavior: .deliverImmediately
+    )
   }()
 
-  /// The strokes for `character` from the cached table; nil while there is no table yet.
+  /// The strokes for `character` from the cached table; nil off the main thread while there is no
+  /// table yet.
   static func strokes(for character: Character) -> [TextStroke]? {
-    guard let table = state.withLock({ $0.cached?.table }) else {
+    if let table = state.withLock({ $0.cached?.table }) {
+      return table.strokes(for: character)
+    }
+    guard Thread.isMainThread else {
       scheduleBuild()
       return nil
     }
-    return table.strokes(for: character)
+    refresh()
+    return state.withLock { $0.cached?.table }?.strokes(for: character)
   }
 
   /// Schedules a build on the main queue unless a table exists or a build is already pending.
@@ -87,19 +111,25 @@ enum LiveTextKeystrokes {
     }
     guard schedule else { return }
     DispatchQueue.main.async {
-      observeInputSourceChanges
-      rebuild()
+      refresh()
       state.withLock { $0.buildScheduled = false }
     }
   }
 
-  /// Rebuilds the table if the input source ID changed. Main thread only.
-  private static func rebuild() {
-    dispatchPrecondition(condition: .onQueue(.main))
+  /// Builds the table if there is none or the selected input source's ID changed, and starts
+  /// observing input source changes. Main thread only.
+  static func refresh() {
+    precondition(Thread.isMainThread, "Text Input Sources must be called on the main thread")
+    observeInputSourceChanges
     guard let current = KeyboardLayoutData.current() else { return }
     let existingID = state.withLock { $0.cached?.inputSourceID }
     guard existingID != current.inputSourceID else { return }
     let table = TextKeystrokes(layoutData: current.data, keyboardType: UInt32(LMGetKbdType()))
     state.withLock { $0.cached = Cached(inputSourceID: current.inputSourceID, table: table) }
+  }
+
+  /// Forgets the table, as if nothing had asked for it yet. For tests.
+  static func reset() {
+    state.withLock { $0 = State() }
   }
 }

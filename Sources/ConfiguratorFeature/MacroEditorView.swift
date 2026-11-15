@@ -269,7 +269,7 @@ private struct TextStepEditor: View {
       )
       .textFieldStyle(.roundedBorder)
       .accessibilityIdentifier("macro.step.\(index).text")
-      let untypeable = MacroEditorFeature().untypeable(text)
+      let untypeable = store.untypeable[index] ?? []
       if !untypeable.isEmpty {
         Label(
           "Can't be typed on this layout: \(untypeable.map(String.init).joined(separator: " "))",

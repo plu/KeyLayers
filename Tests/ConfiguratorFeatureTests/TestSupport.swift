@@ -40,6 +40,10 @@ final class Fakes: Sendable {
   let detectedKeyboards = LockIsolated<[DetectedKeyboard]>([])
   let labels = LockIsolated(StaticKeyLabels.usANSI)
   let labelChanges: AsyncStream<Void>
+  /// The characters the current input source types; ASCII unless a test changes it.
+  let typeable = LockIsolated<@Sendable (Character) -> Bool>({ $0.isASCII })
+  /// How often the text table was brought up to date.
+  let textRefreshes = LockIsolated(0)
   let labelChangesContinuation: AsyncStream<Void>.Continuation
   /// What the save panel returns; `nil` is Cancel.
   let exportURL = LockIsolated<URL?>(nil)
@@ -127,6 +131,11 @@ final class Fakes: Sendable {
     )
     dependencies.keyboardDetection = KeyboardDetectionClient(keyboards: { self.detectedKeyboards.value })
     dependencies.keyLabels = KeyLabelClient(labels: { self.labels.value }, changes: { self.labelChanges })
+    dependencies.textKeystrokes = TextKeystrokeClient(
+      strokes: { self.typeable.value($0) ? [TextStroke(key: .a, modifiers: [])] : nil },
+      capsLockIsOn: { false },
+      refresh: { self.textRefreshes.withValue { $0 += 1 } }
+    )
     applyFileClients(to: &dependencies)
   }
 

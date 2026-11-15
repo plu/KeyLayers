@@ -72,9 +72,9 @@ struct MacroScriptTests {
     #expect(actions(.unsupported(type: "x")).isEmpty)
   }
 
-  @Test func capsLockOffOnlyForText() {
-    #expect(MacroScript.needsCapsLockOff(.text("a")))
-    #expect(!MacroScript.needsCapsLockOff(.text("")))
-    #expect(!MacroScript.needsCapsLockOff(.delay(milliseconds: 1)))
+  @Test func onlyNonEmptyTextTypesText() {
+    #expect(MacroScript.typesText(.text("a")))
+    #expect(!MacroScript.typesText(.text("")))
+    #expect(!MacroScript.typesText(.delay(milliseconds: 1)))
   }
 }

@@ -12,9 +12,10 @@ extension MacroEnvironment {
   static func testing(
     clock: some Clock<Duration>,
     strokes: @escaping @Sendable (Character) -> [TextStroke]? = { _ in nil },
-    capsLockIsOn: @escaping @Sendable () -> Bool = { false }
+    capsLockIsOn: @escaping @Sendable () -> Bool = { false },
+    refreshStrokes: @escaping @Sendable () async -> Void = {}
   ) -> MacroEnvironment {
-    MacroEnvironment(clock: clock, strokes: strokes, capsLockIsOn: capsLockIsOn)
+    MacroEnvironment(clock: clock, strokes: strokes, capsLockIsOn: capsLockIsOn, refreshStrokes: refreshStrokes)
   }
 }
 
@@ -66,21 +67,52 @@ private final class CapsLock: Sendable {
   }
 }
 
+/// A text table that is only filled in by a refresh, like one for an input source the player
+/// hasn't seen yet.
+private final class RefreshedTable: Sendable {
+  private let state = Mutex((table: [Character: [TextStroke]](), refreshes: 0))
+
+  var refreshes: Int {
+    state.withLock { $0.refreshes }
+  }
+
+  func strokes(_ character: Character) -> [TextStroke]? {
+    state.withLock { $0.table[character] }
+  }
+
+  func refresh() {
+    state.withLock {
+      $0.table = letters
+      $0.refreshes += 1
+    }
+  }
+}
+
 @Suite(.timeLimit(.minutes(1)))
 struct MacroPlayerTests {
   let clock = ManualClock()
   let io = FakeKeyIO()
   private let capsLock = CapsLock()
 
-  func start(_ steps: [MacroStep]) throws -> RemapperRuntime {
+  func start(_ steps: [MacroStep], file: Configuration? = nil) throws -> RemapperRuntime {
+    try start(steps, file: file, strokes: { letters[$0] })
+  }
+
+  func start(
+    _ steps: [MacroStep],
+    file: Configuration? = nil,
+    strokes: @escaping @Sendable (Character) -> [TextStroke]?,
+    refreshStrokes: @escaping @Sendable () async -> Void = {}
+  ) throws -> RemapperRuntime {
     let capsLock = capsLock
     let runtime = RemapperRuntime(
       io: io,
-      configuration: configuration(steps),
+      configuration: file ?? configuration(steps),
       macros: .testing(
         clock: clock,
-        strokes: { letters[$0] },
-        capsLockIsOn: { capsLock.isOn }
+        strokes: strokes,
+        capsLockIsOn: { capsLock.isOn },
+        refreshStrokes: refreshStrokes
       )
     )
     try runtime.start()
@@ -144,6 +176,26 @@ struct MacroPlayerTests {
     clock.advance(by: .milliseconds(15))
     await eventually { io.posted.count == 3 }
     #expect(io.posted == [out(.b, true), out(.b, false), out(.c, true)])
+    withExtendedLifetime(runtime) {}
+  }
+
+  @Test func textRunRefreshesTheTableFirst() async throws {
+    let table = RefreshedTable()
+    let runtime = try start([.text("l")], strokes: table.strokes, refreshStrokes: table.refresh)
+    pressMacroKey()
+    await expectPostsOneGapApart(2)
+    #expect(io.posted == [out(.l, true), out(.l, false)])
+    #expect(table.refreshes == 1)
+    withExtendedLifetime(runtime) {}
+  }
+
+  @Test func runWithoutTextDoesNotRefresh() async throws {
+    let table = RefreshedTable()
+    let runtime = try start([tap(.b), .text("")], strokes: table.strokes, refreshStrokes: table.refresh)
+    pressMacroKey()
+    await expectPostsOneGapApart(2)
+    #expect(io.posted == [out(.b, true), out(.b, false)])
+    #expect(table.refreshes == 0)
     withExtendedLifetime(runtime) {}
   }
 

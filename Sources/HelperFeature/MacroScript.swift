@@ -28,8 +28,8 @@ enum MacroScript {
     }
   }
 
-  /// Text steps type the characters of the keyboard layout with Caps Lock off.
-  static func needsCapsLockOff(_ step: MacroStep) -> Bool {
+  /// Whether `step` types text, which needs the current layout's strokes and Caps Lock off.
+  static func typesText(_ step: MacroStep) -> Bool {
     if case let .text(text) = step {
       return !text.isEmpty
     }

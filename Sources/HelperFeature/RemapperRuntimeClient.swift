@@ -43,7 +43,8 @@ extension RemapperRuntimeClient: DependencyKey {
         macros: MacroEnvironment(
           clock: ContinuousClock(),
           strokes: textKeystrokes.strokes,
-          capsLockIsOn: textKeystrokes.capsLockIsOn
+          capsLockIsOn: textKeystrokes.capsLockIsOn,
+          refreshStrokes: textKeystrokes.refresh
         )
       )
     }

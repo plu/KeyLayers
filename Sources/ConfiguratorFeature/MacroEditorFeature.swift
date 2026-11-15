@@ -26,6 +26,9 @@ public struct MacroEditorFeature: Sendable {
     public var recordingStep: Int?
     /// Key labels of the current input source, for the key picker.
     public var labels: [KeyID: String] = [:]
+    /// The characters each Text step (by index) can't type on the current input source; only steps
+    /// with any are listed. Recomputed when the steps or the input source change.
+    public var untypeable: [Int: [Character]] = [:]
 
     public init(macroID: Macro.ID) {
       self.macroID = macroID
@@ -99,11 +102,14 @@ public struct MacroEditorFeature: Sendable {
       switch action {
       case .task:
         state.labels = keyLabels.labels()
+        refreshUntypeable(&state)
         let macroID = state.macroID
         let configuration = state.$configuration
         return .merge(
-          .run { send in
+          .run { [keyLabels, textKeystrokes] send in
             for await _ in keyLabels.changes() {
+              // The text table first, so that the untypeable characters follow the new input source.
+              await textKeystrokes.refresh()
               await send(.labelsChanged(keyLabels.labels()))
             }
           },
@@ -129,10 +135,12 @@ public struct MacroEditorFeature: Sendable {
 
       case let .labelsChanged(labels):
         state.labels = labels
+        refreshUntypeable(&state)
         return .none
 
       case let .macroChanged(id, macro):
         guard id == state.macroID else { return .none }
+        refreshUntypeable(&state)
         guard let macro else {
           return .merge(.cancel(id: CancelID.recording), .send(.delegate(.macroRemoved)))
         }
@@ -162,11 +170,13 @@ public struct MacroEditorFeature: Sendable {
 
       case let .addStep(kind):
         state.editSteps { $0.append(kind.newStep) }
+        refreshUntypeable(&state)
         return .none
 
       case let .deleteStep(index):
         guard !state.isReadOnly, state.macro?.steps.indices.contains(index) == true else { return .none }
         state.editSteps { $0.remove(at: index) }
+        refreshUntypeable(&state)
         return stopRecording(&state)
 
       case let .moveSteps(source, destination):
@@ -174,6 +184,7 @@ public struct MacroEditorFeature: Sendable {
               source.allSatisfy({ $0 < count }), (0 ... count).contains(destination)
         else { return .none }
         state.editSteps { $0.moveElements(at: source, to: destination) }
+        refreshUntypeable(&state)
         return stopRecording(&state)
 
       case let .stepChanged(index, step):
@@ -186,6 +197,7 @@ public struct MacroEditorFeature: Sendable {
           return .none
         }
         state.editSteps { $0[index] = step.normalized }
+        refreshUntypeable(&state)
         return .none
 
       case let .recordTapped(index):
@@ -219,6 +231,20 @@ public struct MacroEditorFeature: Sendable {
     guard state.recordingStep != nil else { return .none }
     state.recordingStep = nil
     return .cancel(id: CancelID.recording)
+  }
+
+  /// Recomputes `untypeable` from the macro's steps and the current input source.
+  private func refreshUntypeable(_ state: inout State) {
+    var result: [Int: [Character]] = [:]
+    for (index, step) in (state.macro?.steps ?? []).enumerated() {
+      if case let .text(text) = step {
+        let characters = untypeable(text)
+        if !characters.isEmpty {
+          result[index] = characters
+        }
+      }
+    }
+    state.untypeable = result
   }
 
   /// The characters of `text` the current input source can't type, each once, in order of appearance.

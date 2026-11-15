@@ -161,13 +161,49 @@ struct MacroEditorFeatureTests {
 
   @Test func untypeableListsUniqueCharactersInOrder() {
     let feature = withDependencies {
-      $0.textKeystrokes = TextKeystrokeClient(strokes: { $0.isASCII ? [] : nil }, capsLockIsOn: { false })
+      $0.textKeystrokes = TextKeystrokeClient(strokes: { $0.isASCII ? [] : nil }, capsLockIsOn: { false }, refresh: {})
     } operation: {
       MacroEditorFeature()
     }
     #expect(feature.untypeable("Cheers ☕☕") == ["☕"])
     #expect(feature.untypeable("é☕e☕é") == ["é", "☕"])
     #expect(feature.untypeable("plain").isEmpty)
+  }
+
+  @Test func untypeableCharactersAreKeptPerTextStep() async throws {
+    let fakes = try Fakes(file: configuration(steps: [.text("Coffee ☕"), .delay(milliseconds: 5), .text("ok")]))
+    let store = makeStore(fakes)
+
+    // Known as soon as the editor appears.
+    let task = await store.send(.task) {
+      $0.labels = StaticKeyLabels.usANSI
+      $0.untypeable = [0: ["☕"]]
+    }
+    // Text edits recompute it.
+    await store.send(.stepChanged(2, .text("tea é"))) {
+      $0.$configuration.withLock { $0.macros[id: macroID]?.steps[2] = .text("tea é") }
+      $0.untypeable = [0: ["☕"], 2: ["é"]]
+    }
+    await store.receive(\.macroChanged)
+    // Steps that move take their characters along.
+    await store.send(.moveSteps(IndexSet(integer: 2), 0)) {
+      $0.$configuration.withLock {
+        $0.macros[id: macroID]?.steps = [.text("tea é"), .text("Coffee ☕"), .delay(milliseconds: 5)]
+      }
+      $0.untypeable = [0: ["é"], 1: ["☕"]]
+    }
+    await store.receive(\.macroChanged)
+
+    // A new input source: the text table is brought up to date before the characters are checked.
+    fakes.typeable.setValue { $0 != "☕" }
+    fakes.labelChangesContinuation.yield()
+    await store.receive(\.labelsChanged) { $0.untypeable = [1: ["☕"]] }
+    #expect(fakes.textRefreshes.value == 1)
+
+    // A change saved elsewhere too.
+    store.state.$configuration.withLock { $0.macros[id: macroID]?.steps[1] = .text("Coffee") }
+    await store.receive(\.macroChanged) { $0.untypeable = [:] }
+    await task.cancel()
   }
 
   @Test func readOnlyIgnoresEdits() async throws {

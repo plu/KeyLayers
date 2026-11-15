@@ -18,13 +18,11 @@ struct MacroEditorSnapshotTests {
     ) {
       var state = MacroEditorFeature.State(macroID: coffeeMacroID)
       state.labels = StaticKeyLabels.usANSI
+      state.untypeable = coffeeUntypeable
       configure(&state)
       return state
     }
-    // The view asks the text client directly, outside the store's dependencies.
-    withDependencies { $0.textKeystrokes = asciiTextKeystrokes } operation: {
-      assertBothAppearances(MacroEditorView(store: store), size: CGSize(width: 600, height: 420), testName: testName)
-    }
+    assertBothAppearances(MacroEditorView(store: store), size: CGSize(width: 600, height: 420), testName: testName)
   }
 
   @Test func macroEditor() throws {
