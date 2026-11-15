@@ -98,10 +98,13 @@ can do the same through its virtual keyboard and type text for the layout actual
   with modifier combinations none, ⇧, ⌥, ⇧⌥, including dead-key state: for each
   key/modifier that yields a dead-key state, translate every key/modifier again in that state to
   find two-stroke sequences. Prefer the fewest strokes, then fewest modifiers.
-- **Caps Lock (my call):** the table is built twice, Caps Lock off and on (`alphaLock` in the
-  `UCKeyTranslate` modifier state). At the start of each Text step the player reads the current
-  Caps Lock state (`CGEventSource.flagsState(.hidSystemState)`) and uses the matching table. The
-  player never toggles Caps Lock.
+- **Caps Lock (my call, revised):** the table is built with Caps Lock off only. On macOS Shift does
+  not undo Caps Lock (Caps Lock + Shift + A is still "A"), so no Caps-Lock-on table could type
+  lowercase letters. Instead, at the start of each Text step the player reads the Caps Lock state
+  (`CGEventSource.flagsState(.hidSystemState)` contains `.maskAlphaShift`); if it is on, the player
+  taps Caps Lock before the text and taps it again after, restoring the user's state. A cancel in the
+  middle of a Text step also restores it. The player never changes Caps Lock otherwise. (Needs a
+  hardware check that a Caps Lock tap from the virtual keyboard toggles reliably.)
 - **Keyboard type (my call):** translation uses `LMGetKbdType()` as `LiveKeyLabels` does. Mismatched
   ISO/ANSI/JIS cases between keyboards are a documented limitation.
 - Newline maps to Return, tab to Tab.
