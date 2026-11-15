@@ -179,6 +179,44 @@ struct HIDBackendTests {
     #expect(log.reports(2).last == report(0x06))
   }
 
+  @Test func currentSourceDeviceInsideHandler() throws {
+    try startCapturing([keyboard(1), keyboard(2)])
+    let backend = backend
+    let recorded = SourceRecorder()
+    runtime.respond { _ in
+      recorded.append(backend.currentSourceDevice())
+      return .suppress
+    }
+    daemon.send([raw(2, 0x04)])
+    backend.drain()
+    #expect(recorded.values == [2])
+    #expect(backend.currentSourceDevice() == nil)
+  }
+
+  @Test func postToDeviceUsesThatKeyboard() throws {
+    try startCapturing([keyboard(1), keyboard(2)])
+    daemon.send([raw(1, 0x05), raw(1, 0x05, down: false)]) // Keyboard 1 is the last active one.
+    backend.drain()
+    let before = log.reports(1).count
+    let posted = backend.post(
+      [OutputEvent(key: .a, isDown: true, modifiers: []), OutputEvent(key: .a, isDown: false, modifiers: [])],
+      device: 2
+    )
+    #expect(posted)
+    #expect(log.reports(1).count == before)
+    #expect(log.reports(2) == [report(0x04), emptyReport])
+  }
+
+  @Test func postToRemovedDeviceReturnsFalse() throws {
+    try startCapturing([keyboard(1), keyboard(2)])
+    daemon.report([keyboard(1)])
+    backend.drain()
+    let posted = backend.post([OutputEvent(key: .a, isDown: true, modifiers: [])], device: 2)
+    #expect(!posted)
+    #expect(log.reports(2).isEmpty)
+    #expect(log.reports(1).isEmpty)
+  }
+
   @Test func modifiersHeldOnAnotherKeyboardAreNotExtras() throws {
     try startCapturing([keyboard(1), keyboard(2)])
     let backend = backend
@@ -610,5 +648,18 @@ struct LocalizationCodeTests {
     #expect(LiveVirtualKeyboardFactory.localizationCode(forCountryCode: 35) == .turkeyStandard)
     #expect(LiveVirtualKeyboardFactory.localizationCode(forCountryCode: 36) == nil)
     #expect(LiveVirtualKeyboardFactory.localizationCode(forCountryCode: -1) == nil)
+  }
+}
+
+final class SourceRecorder: @unchecked Sendable {
+  private let lock = NSLock()
+  private var storage: [UInt64?] = []
+
+  var values: [UInt64?] {
+    lock.withLock { storage }
+  }
+
+  func append(_ value: UInt64?) {
+    lock.withLock { storage.append(value) }
   }
 }

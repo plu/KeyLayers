@@ -11,6 +11,9 @@ final class FakeKeyIO: KeyInputOutput, @unchecked Sendable {
   private var interruptionHandler: (@Sendable () -> Void)?
   private var postedEvents: [OutputEvent] = []
   private var capture: [Bool] = []
+  private var devices: [UInt64?] = []
+  private var source: UInt64?
+  private var removed: Set<UInt64> = []
   private var stops = 0
   private let startError: (any Error)?
 
@@ -20,6 +23,23 @@ final class FakeKeyIO: KeyInputOutput, @unchecked Sendable {
 
   var posted: [OutputEvent] {
     lock.withLock { postedEvents }
+  }
+
+  /// The source device of each event in `posted`; `nil` for `post(_:)` and fallback posts.
+  var postedDevices: [UInt64?] {
+    lock.withLock { devices }
+  }
+
+  /// Returned by `currentSourceDevice()`.
+  var sourceDevice: UInt64? {
+    get { lock.withLock { source } }
+    set { lock.withLock { source = newValue } }
+  }
+
+  /// Devices for which `post(_:device:)` returns `false`.
+  var removedDevices: Set<UInt64> {
+    get { lock.withLock { removed } }
+    set { lock.withLock { removed = newValue } }
   }
 
   var stopCount: Int {
@@ -53,7 +73,25 @@ final class FakeKeyIO: KeyInputOutput, @unchecked Sendable {
   }
 
   func post(_ events: [OutputEvent]) {
-    lock.withLock { postedEvents += events }
+    lock.withLock {
+      postedEvents += events
+      devices += events.map { _ in nil }
+    }
+  }
+
+  func currentSourceDevice() -> UInt64? {
+    sourceDevice
+  }
+
+  func post(_ events: [OutputEvent], device: UInt64?) -> Bool {
+    lock.withLock {
+      if let device, removed.contains(device) {
+        return false
+      }
+      postedEvents += events
+      devices += events.map { _ in device }
+      return true
+    }
   }
 
   func setCaptureEnabled(_ enabled: Bool) {

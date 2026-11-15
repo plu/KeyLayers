@@ -13,6 +13,12 @@ public protocol KeyInputOutput: AnyObject, Sendable {
   ) throws
   func stop()
   func post(_ events: [OutputEvent])
+  /// The device whose event the handler is processing; `nil` outside the handler.
+  func currentSourceDevice() -> UInt64?
+  /// Like `post(_:)`, but routes as if `device` were the source (`nil`: the fallback device), from
+  /// any thread. Returns `false` and posts nothing when a non-nil `device` is no longer present.
+  /// Downs are still dropped while capture is off.
+  func post(_ events: [OutputEvent], device: UInt64?) -> Bool
   /// `true` while the runtime is started and not paused: the backend takes the keyboards over;
   /// `false` hands them back to the system after releasing every key it holds.
   /// May be called from the handler; must return quickly.

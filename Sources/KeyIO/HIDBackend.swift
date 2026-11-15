@@ -189,17 +189,23 @@ public final class HIDBackend: KeyInputOutput, @unchecked Sendable {
   public func post(_ events: [OutputEvent]) {
     let onInputQueue = DispatchQueue.getSpecific(key: Self.inputQueueKey) != nil
     lock.withLock {
-      let source = onInputQueue ? currentSource : nil
-      for event in events {
-        // Capture off: the physical keys belong to the system again, so a down sent now would never
-        // see its up. Ups and releases still go out.
-        if event.isDown, !captureActive {
-          continue
-        }
-        guard let fallback = fallbackDevice() else { return }
-        emit(event, on: router.route(event, source: source, fallback: fallback))
-      }
+      post(events, source: onInputQueue ? currentSource : nil)
     }
+  }
+
+  public func post(_ events: [OutputEvent], device: UInt64?) -> Bool {
+    lock.withLock {
+      if let device, keyboards[device] == nil {
+        return false
+      }
+      post(events, source: device)
+      return true
+    }
+  }
+
+  public func currentSourceDevice() -> UInt64? {
+    guard DispatchQueue.getSpecific(key: Self.inputQueueKey) != nil else { return nil }
+    return lock.withLock { currentSource }
   }
 
   public func setCaptureEnabled(_ enabled: Bool) {
@@ -429,6 +435,19 @@ public final class HIDBackend: KeyInputOutput, @unchecked Sendable {
       return lastActiveDevice
     }
     return keyboards.keys.min()
+  }
+
+  /// Routes `events` as if `source` were the device being handled (`nil`: the fallback device).
+  private func post(_ events: [OutputEvent], source: UInt64?) {
+    for event in events {
+      // Capture off: the physical keys belong to the system again, so a down sent now would never
+      // see its up. Ups and releases still go out.
+      if event.isDown, !captureActive {
+        continue
+      }
+      guard let fallback = fallbackDevice() else { return }
+      emit(event, on: router.route(event, source: source, fallback: fallback))
+    }
   }
 
   private func emit(_ event: OutputEvent, on device: UInt64) {
