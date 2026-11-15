@@ -1,6 +1,7 @@
 import Dependencies
 import DependenciesMacros
 import Foundation
+import KeyboardLayout
 import KeyIO
 import KeymapModel
 import SharedConfig
@@ -35,7 +36,16 @@ extension RemapperRuntimeClient: DependencyKey {
         onDevicesChanged: { send(.devices($0)) },
         onCaptureChanged: { send(.captureChanged($0)) }
       )
-      return RemapperRuntime(io: backend, configuration: configuration)
+      let textKeystrokes = TextKeystrokeClient.liveValue
+      return RemapperRuntime(
+        io: backend,
+        configuration: configuration,
+        macros: MacroEnvironment(
+          clock: ContinuousClock(),
+          strokes: textKeystrokes.strokes,
+          capsLockIsOn: textKeystrokes.capsLockIsOn
+        )
+      )
     }
     let activity = RemappingActivity()
     return RemapperRuntimeClient(

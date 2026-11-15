@@ -1,3 +1,4 @@
+import Clocks
 import Foundation
 @testable import HelperFeature
 import IdentifiedCollections
@@ -51,7 +52,7 @@ private func firstEvents(_ runtime: RemapperRuntime, _ count: Int) async -> [Run
 struct RemapperRuntimeTests {
   @Test func remapsThroughEngine() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     #expect(io.send(down(.fn)) == .suppress)
     #expect(io.send(down(.h)) == .suppress)
@@ -60,14 +61,14 @@ struct RemapperRuntimeTests {
 
   @Test func startEnablesCapture() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     #expect(io.captureEnabled.last == true)
   }
 
   @Test func pauseDisablesCapture() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     runtime.setPaused(true)
     #expect(io.captureEnabled.last == false)
@@ -75,7 +76,7 @@ struct RemapperRuntimeTests {
 
   @Test func resumeEnablesCapture() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     runtime.setPaused(true)
     runtime.setPaused(false)
@@ -84,7 +85,7 @@ struct RemapperRuntimeTests {
 
   @Test func captureStaysOffWhenStartedPaused() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     runtime.setPaused(true)
     try runtime.start()
     runtime.update(configuration: twoKeymaps)
@@ -95,7 +96,7 @@ struct RemapperRuntimeTests {
 
   @Test func stopDisablesCapture() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     runtime.stop()
     #expect(io.captureEnabled.last == false)
@@ -107,7 +108,7 @@ struct RemapperRuntimeTests {
 
   @Test func pauseReleasesHeldKeys() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h))
@@ -122,7 +123,7 @@ struct RemapperRuntimeTests {
   @Test func interruptedInputReleasesHeldKeys() async throws {
     // The daemon connection dropped: key-ups may have been lost.
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h))
@@ -136,7 +137,7 @@ struct RemapperRuntimeTests {
 
   @Test func pauseYieldsBaseLayerStatus() async throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h)) // activates Mod
@@ -146,7 +147,7 @@ struct RemapperRuntimeTests {
 
   @Test func resumeRemapsAgain() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     runtime.setPaused(true)
     runtime.setPaused(false)
@@ -157,7 +158,7 @@ struct RemapperRuntimeTests {
 
   @Test func emergencyStopPausesRuntime() async throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     for key in [KeyID.leftControl, .leftAlt, .leftGUI, .escape] {
       _ = io.send(down(key))
@@ -171,7 +172,7 @@ struct RemapperRuntimeTests {
 
   @Test func updateKeepsRemappingLive() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     var configuration = Configuration.starter
     configuration.keymaps[id: Keymap.starterID]?.setAction(
@@ -186,7 +187,7 @@ struct RemapperRuntimeTests {
     let io = FakeKeyIO()
     var configuration = twoKeymaps
     configuration.keymaps[id: Keymap.starterID]?.setAction(.switchKeymap(otherKeymapID), for: .b, on: .base)
-    let runtime = RemapperRuntime(io: io, configuration: configuration)
+    let runtime = RemapperRuntime(io: io, configuration: configuration, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.b))
     #expect(io.send(down(.a)) == .suppress)
@@ -196,7 +197,7 @@ struct RemapperRuntimeTests {
   }
 
   @Test func selectKeymapYieldsStatusAndNotification() async throws {
-    let runtime = RemapperRuntime(io: FakeKeyIO(), configuration: twoKeymaps)
+    let runtime = RemapperRuntime(io: FakeKeyIO(), configuration: twoKeymaps, macros: .testing(clock: TestClock()))
     try runtime.start()
     runtime.selectKeymap(otherKeymapID)
     #expect(await firstEvents(runtime, 3) == [
@@ -206,7 +207,7 @@ struct RemapperRuntimeTests {
 
   @Test func restartReleasesHeldKeys() async throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h))
@@ -217,7 +218,9 @@ struct RemapperRuntimeTests {
 
   @Test func hostEventsResubscribe() async throws {
     let io = FakeKeyIO()
-    let host = RuntimeHost { configuration, _ in RemapperRuntime(io: io, configuration: configuration) }
+    let host = RuntimeHost { configuration, _ in
+      RemapperRuntime(io: io, configuration: configuration, macros: .testing(clock: TestClock()))
+    }
     let first = host.events()
     let second = host.events()
     var firstEvents: [RuntimeEvent] = []
@@ -238,7 +241,7 @@ struct RemapperRuntimeTests {
     let sender = Mutex<(@Sendable (RuntimeEvent) -> Void)?>(nil)
     let host = RuntimeHost { configuration, send in
       sender.withLock { $0 = send }
-      return RemapperRuntime(io: io, configuration: configuration)
+      return RemapperRuntime(io: io, configuration: configuration, macros: .testing(clock: TestClock()))
     }
     try host.start(.starter)
     // The backend reports its devices (HIDBackend's onDevicesChanged) on its own thread.
@@ -254,7 +257,7 @@ struct RemapperRuntimeTests {
 
   @Test func stopReleasesHeldKeysAndStopsBackend() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h))
@@ -265,7 +268,7 @@ struct RemapperRuntimeTests {
 
   @Test func stopTwiceIsHarmless() throws {
     let io = FakeKeyIO()
-    let runtime = RemapperRuntime(io: io, configuration: .starter)
+    let runtime = RemapperRuntime(io: io, configuration: .starter, macros: .testing(clock: TestClock()))
     try runtime.start()
     _ = io.send(down(.fn))
     _ = io.send(down(.h))
@@ -279,7 +282,9 @@ struct RemapperRuntimeTests {
 
   @Test func hostStopStopsRuntime() throws {
     let io = FakeKeyIO()
-    let host = RuntimeHost { configuration, _ in RemapperRuntime(io: io, configuration: configuration) }
+    let host = RuntimeHost { configuration, _ in
+      RemapperRuntime(io: io, configuration: configuration, macros: .testing(clock: TestClock()))
+    }
     host.stop() // before start: nothing to stop
     #expect(io.stopCount == 0)
     try host.start(.starter)
@@ -288,7 +293,11 @@ struct RemapperRuntimeTests {
   }
 
   @Test func startFailureThrows() {
-    let runtime = RemapperRuntime(io: FakeKeyIO(startError: KeyIOError.daemonUnavailable), configuration: .starter)
+    let runtime = RemapperRuntime(
+      io: FakeKeyIO(startError: KeyIOError.daemonUnavailable),
+      configuration: .starter,
+      macros: .testing(clock: TestClock())
+    )
     #expect(throws: KeyIOError.daemonUnavailable) { try runtime.start() }
   }
 }

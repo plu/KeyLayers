@@ -25,6 +25,10 @@ public enum RuntimeEvent: Equatable, Sendable {
 /// order the engine produced them in; e.g. a pause's key-ups can't overtake key-downs from a
 /// handler call running at the same time, and the last capture change wins.
 ///
+/// Macros play on `MacroPlayer`'s own task, which shares `lock` for its posts but never holds it
+/// across an await; the handler only queues runs and never waits for the player. Every path that
+/// releases all synthetic keys or changes the keymap or configuration cancels playback first.
+///
 /// `events` is meant for a single subscriber.
 public final class RemapperRuntime: @unchecked Sendable {
   public let events: AsyncStream<RuntimeEvent>
@@ -33,20 +37,25 @@ public final class RemapperRuntime: @unchecked Sendable {
   private let continuation: AsyncStream<RuntimeEvent>.Continuation
 
   // Guarded by `lock`.
-  private let lock = NSLock()
+  private let lock: NSLock
+  private let player: MacroPlayer
   private var engine: RemapEngine
   private var isPaused = false
   private var isStopped = false
   private var hasStarted = false
   private var lastStatus: EngineStatus?
 
-  public init(io: any KeyInputOutput, configuration: Configuration) {
+  public init(io: any KeyInputOutput, configuration: Configuration, macros: MacroEnvironment) {
     self.io = io
+    let lock = NSLock()
+    self.lock = lock
+    player = MacroPlayer(lock: lock, io: io, environment: macros)
     engine = RemapEngine(configuration: configuration)
     (events, continuation) = AsyncStream.makeStream()
   }
 
   deinit {
+    lock.withLock { player.cancel() }
     continuation.finish()
   }
 
@@ -56,6 +65,7 @@ public final class RemapperRuntime: @unchecked Sendable {
   public func start() throws {
     lock.withLock {
       if hasStarted {
+        player.cancel()
         post(engine.releaseAll())
       }
       hasStarted = true
@@ -74,6 +84,7 @@ public final class RemapperRuntime: @unchecked Sendable {
   public func stop() {
     lock.withLock {
       isStopped = true
+      player.cancel()
       post(engine.releaseAll())
       syncCapture()
     }
@@ -81,9 +92,11 @@ public final class RemapperRuntime: @unchecked Sendable {
     io.stop()
   }
 
-  /// Swaps in a new configuration; held keys keep resolving through their press actions.
+  /// Swaps in a new configuration; held keys keep resolving through their press actions. Cancels
+  /// macro playback.
   public func update(configuration: Configuration) {
     lock.withLock {
+      player.cancel()
       engine.update(configuration: configuration)
       yieldStatus()
     }
@@ -96,6 +109,7 @@ public final class RemapperRuntime: @unchecked Sendable {
       guard paused != isPaused else { return }
       isPaused = paused
       if paused {
+        player.cancel()
         post(engine.releaseAll())
         // releaseAll resets to Base without a notification.
         yieldStatus(force: true)
@@ -118,11 +132,17 @@ public final class RemapperRuntime: @unchecked Sendable {
     lock.withLock {
       guard !isPaused, !isStopped else { return .passThrough }
       let result = engine.handle(event)
+      // The output holds the ups of synthetic modifiers released for a macro: post it first.
       post(result.output)
+      if !result.macros.isEmpty {
+        // The source device is only known during the handler call.
+        player.enqueue(result.macros, device: io.currentSourceDevice())
+      }
       let emergencyStop = result.notifications.contains(.emergencyStop)
       if emergencyStop {
         // Pause here, before yielding, so safety doesn't depend on the subscriber.
         isPaused = true
+        player.cancel()
       }
       publish(result.notifications, forceStatus: emergencyStop)
       if emergencyStop {
@@ -137,6 +157,7 @@ public final class RemapperRuntime: @unchecked Sendable {
   private func inputInterrupted() {
     lock.withLock {
       guard !isPaused, !isStopped else { return }
+      player.cancel()
       post(engine.releaseAll())
       // releaseAll resets to Base without a notification.
       yieldStatus()
@@ -157,7 +178,11 @@ public final class RemapperRuntime: @unchecked Sendable {
   }
 
   /// Requires `lock`. Yields the status if it changed (or `forceStatus`), then every notification.
+  /// A keymap switch cancels macro playback.
   private func publish(_ notifications: [EngineNotification], forceStatus: Bool = false) {
+    if notifications.contains(where: \.isKeymapSwitch) {
+      player.cancel()
+    }
     yieldStatus(force: forceStatus)
     for notification in notifications {
       continuation.yield(.notification(notification))
@@ -170,5 +195,14 @@ public final class RemapperRuntime: @unchecked Sendable {
     guard force || status != lastStatus else { return }
     lastStatus = status
     continuation.yield(.status(status))
+  }
+}
+
+private extension EngineNotification {
+  var isKeymapSwitch: Bool {
+    if case .keymapSwitched = self {
+      return true
+    }
+    return false
   }
 }
