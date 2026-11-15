@@ -99,10 +99,14 @@ final class MacroPlayer: @unchecked Sendable {
       for step in steps {
         guard await perform(step, generation, clock: clock, deadline: &deadline) else { return }
       }
-      lock.withLock {
-        if generation == self.generation {
-          releaseHeld()
-        }
+      let released = lock.withLock { () -> Bool in
+        guard generation == self.generation else { return false }
+        deadline = clock.now.advanced(by: Self.eventGap)
+        return releaseHeld()
+      }
+      // The gap after the cleanup too, before the next queued run's first event.
+      if released {
+        guard await sleep(until: deadline, clock: clock) else { return }
       }
     }
   }
@@ -114,13 +118,16 @@ final class MacroPlayer: @unchecked Sendable {
     clock: C,
     deadline: inout C.Instant
   ) async -> Bool {
-    let turnsCapsLockOff = MacroScript.typesText(step) && environment.capsLockIsOn()
+    let actions = MacroScript.actions(for: step, strokes: environment.strokes)
+    // Only around text that types something (none while there is no table, or nothing typeable).
+    let turnsCapsLockOff = MacroScript.typesText(step) && actions.contains(where: \.isEvent)
+      && environment.capsLockIsOn()
     if turnsCapsLockOff {
       guard await tapCapsLock(needsRestore: true, generation, clock: clock, deadline: &deadline) else {
         return false
       }
     }
-    for action in MacroScript.actions(for: step, strokes: environment.strokes) {
+    for action in actions {
       switch action {
       case let .event(event):
         guard await post(event, generation, clock: clock, deadline: &deadline) else { return false }
@@ -211,20 +218,23 @@ final class MacroPlayer: @unchecked Sendable {
   }
 
   /// Requires `lock`. Ups for everything the run holds, last pressed first, then a Caps Lock tap if
-  /// the run turned it off.
-  private func releaseHeld() {
-    var output = held.reversed().map { OutputEvent(key: $0.key, isDown: false, modifiers: $0.modifiers) }
+  /// the run turned it off. Returns whether it posted anything.
+  @discardableResult
+  private func releaseHeld() -> Bool {
+    let ups = held.reversed().map { OutputEvent(key: $0.key, isDown: false, modifiers: $0.modifiers) }
     held = []
-    if capsLockNeedsRestore {
-      capsLockNeedsRestore = false
-      output += [
-        OutputEvent(key: .capsLock, isDown: true, modifiers: []),
-        OutputEvent(key: .capsLock, isDown: false, modifiers: []),
-      ]
-    }
-    if !output.isEmpty {
+    if !ups.isEmpty {
       // A gone device has nothing left to release.
-      _ = io.post(output, device: device)
+      _ = io.post(ups, device: device)
     }
+    let restoresCapsLock = capsLockNeedsRestore
+    if restoresCapsLock {
+      capsLockNeedsRestore = false
+      // Caps Lock is system-wide: through the fallback keyboard, so that it's turned back on even
+      // when the run's keyboard is gone.
+      let tap = [true, false].map { OutputEvent(key: .capsLock, isDown: $0, modifiers: []) }
+      _ = io.post(tap, device: nil)
+    }
+    return !ups.isEmpty || restoresCapsLock
   }
 }

@@ -7,6 +7,13 @@ import RemapEngine
 enum MacroAction: Equatable, Sendable {
   case event(OutputEvent)
   case wait(Duration)
+
+  var isEvent: Bool {
+    if case .event = self {
+      return true
+    }
+    return false
+  }
 }
 
 /// Expands macro steps into the events and waits that perform them.

@@ -216,6 +216,34 @@ struct MacroPlayerTests {
     withExtendedLifetime(runtime) {}
   }
 
+  /// The cleanup ups of one run and the first down of the next are a gap apart, so a key released
+  /// at the end of a run and pressed again at the start of the next isn't doubled.
+  @Test func backToBackRunsKeepTheGap() async throws {
+    let runtime = try start([pressShift, tap(.b)])
+    pressMacroKey()
+    pressMacroKey()
+    await expectPostsOneGapApart(8)
+    let run = [out(.leftShift, true), out(.b, true), out(.b, false), out(.leftShift, false)]
+    #expect(io.posted == run + run)
+    withExtendedLifetime(runtime) {}
+  }
+
+  /// Engine output of the macro key's down (here the ⇧ up of a held Caps Lock-as-⇧) is posted
+  /// before anything the macro plays.
+  @Test func engineOutputComesBeforeTheMacro() async throws {
+    var file = configuration([tap(.b)])
+    let shift = KeyAction.keypress(Keypress(key: .leftShift, modifiers: []))
+    file.keymaps[id: Keymap.starterID]?.setAction(shift, for: .capsLock, on: .base)
+    let runtime = try start([tap(.b)], file: file)
+    #expect(io.send(down(.capsLock)) == .suppress)
+    #expect(io.posted.map(\.key) == [.leftShift])
+    pressMacroKey()
+    await eventually { io.posted.count == 3 }
+    #expect(io.posted.dropFirst().map(\.key) == [.leftShift, .b])
+    #expect(io.posted.dropFirst().map(\.isDown) == [false, true])
+    withExtendedLifetime(runtime) {}
+  }
+
   @Test func secondPressQueues() async throws {
     let runtime = try start([tap(.b), tap(.c)])
     pressMacroKey()
@@ -265,6 +293,40 @@ struct MacroPlayerTests {
       out(.l, true), out(.l, false), out(.l, true), out(.l, false),
       out(.capsLock, true), out(.capsLock, false),
     ])
+    withExtendedLifetime(runtime) {}
+  }
+
+  /// A Text step that types nothing (no table yet, or nothing the layout can type) leaves Caps Lock
+  /// alone.
+  @Test func capsLockIsLeftAloneWhenTextTypesNothing() async throws {
+    capsLock.isOn = true
+    let runtime = try start([.text("☕"), tap(.b)])
+    pressMacroKey()
+    await expectPostsOneGapApart(2)
+    clock.advance(by: .seconds(1))
+    await settle()
+    #expect(io.posted == [out(.b, true), out(.b, false)])
+    withExtendedLifetime(runtime) {}
+  }
+
+  /// Caps Lock is system-wide: when the run's keyboard is gone, it's turned back on through the
+  /// fallback keyboard.
+  @Test func capsLockIsRestoredWhenTheDeviceIsGone() async throws {
+    capsLock.isOn = true
+    let runtime = try start([.text("ll")])
+    io.sourceDevice = 7
+    pressMacroKey()
+    await expectPostsOneGapApart(2) // Caps Lock tap
+    await eventually { io.posted.count == 3 } // L↓
+    io.removedDevices = [7]
+    clock.advance(by: MacroPlayer.eventGap)
+    await eventually { io.posted.count == 5 }
+    await settle()
+    #expect(io.posted == [
+      out(.capsLock, true), out(.capsLock, false), out(.l, true),
+      out(.capsLock, true), out(.capsLock, false),
+    ])
+    #expect(io.postedDevices == [7, 7, 7, nil, nil])
     withExtendedLifetime(runtime) {}
   }
 
