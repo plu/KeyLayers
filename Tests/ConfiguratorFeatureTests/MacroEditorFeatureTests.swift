@@ -170,22 +170,36 @@ struct MacroEditorFeatureTests {
     #expect(feature.untypeable("plain").isEmpty)
   }
 
-  @Test func readOnlyIgnoresEdits() async {
-    let newer = Data(#"{"formatVersion": 99, "keymaps": []}"#.utf8)
-    let fakes = Fakes(fileData: newer)
+  @Test func readOnlyIgnoresEdits() async throws {
+    let fakes = try Fakes(file: configuration())
     let store = makeStore(fakes) {
       $0.keyRecorder = KeyRecorderClient(record: { .b })
     }
+    // The file breaks after the macro was loaded: the macro stays in memory, read-only.
+    let corrupt = Data("{".utf8)
+    fakes.writeFile(corrupt)
+    try? await store.state.$configuration.load()
     #expect(store.state.isReadOnly)
+    let macro = try #require(store.state.macro)
+    #expect(macro.steps == sampleSteps)
 
     await store.send(.nameChanged("New"))
     await store.send(.addStep(.text))
     await store.send(.deleteStep(0))
     await store.send(.moveSteps(IndexSet(integer: 0), 2))
     await store.send(.stepChanged(0, .text("x")))
-    await store.send(.recordTapped(0))
-    await store.send(.recorded(0, .b))
-    #expect(fakes.fileData == newer)
+    await store.send(.recordTapped(3))
+    await store.send(.recorded(3, .b))
+    #expect(store.state.macro == macro)
+    #expect(fakes.fileData == corrupt)
+  }
+
+  @Test func changesOfAnotherMacroAreIgnored() async throws {
+    let fakes = try Fakes(file: configuration())
+    let store = makeStore(fakes)
+    // A watcher left over from a previously edited macro reports that macro gone.
+    await store.send(.macroChanged(UUID(), nil))
+    await store.send(.macroChanged(UUID(), Macro(id: UUID(), name: "Other", steps: [])))
   }
 
   @Test func removedMacroIsReported() async throws {

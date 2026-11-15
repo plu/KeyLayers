@@ -57,8 +57,9 @@ public struct MacroEditorFeature: Sendable {
   public enum Action: Sendable {
     case task
     case labelsChanged([KeyID: String])
-    /// The macro changed underneath the editor (another process saved the file, or it loaded).
-    case macroChanged(Macro?)
+    /// The macro with this ID changed underneath the editor (another process saved the file, or it
+    /// loaded). The ID guards against a watcher started for a previously edited macro.
+    case macroChanged(Macro.ID, Macro?)
     case nameChanged(String)
     /// The name field was committed: an empty draft shows the saved name again.
     case nameSubmitted
@@ -106,7 +107,7 @@ public struct MacroEditorFeature: Sendable {
               .map { $0.macros[id: macroID] }
               .removeDuplicates()
               .dropFirst()
-              .map(Action.macroChanged)
+              .map { Action.macroChanged(macroID, $0) }
           }
         )
 
@@ -114,7 +115,8 @@ public struct MacroEditorFeature: Sendable {
         state.labels = labels
         return .none
 
-      case let .macroChanged(macro):
+      case let .macroChanged(id, macro):
+        guard id == state.macroID else { return .none }
         guard let macro else {
           return .merge(.cancel(id: CancelID.recording), .send(.delegate(.macroRemoved)))
         }

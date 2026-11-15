@@ -26,7 +26,8 @@ public struct MacroEditorView: View {
         ContentUnavailableView("No Macro Selected", systemImage: "bolt")
       }
     }
-    .task { await store.send(.task).finish() }
+    // Keyed by macro: switching macros keeps this view, and the new macro needs its own `.task`.
+    .task(id: store.macroID) { await store.send(.task).finish() }
   }
 
   private var header: some View {

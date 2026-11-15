@@ -216,6 +216,37 @@ struct AppFeatureTests {
     await task.cancel()
   }
 
+  @Test func switchingMacrosEditsTheNewOne() async throws {
+    var file = Configuration.starter
+    let first = Macro(id: newID, name: "Greet", steps: [])
+    let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-0000000000B2"))
+    let second = Macro(id: secondID, name: "Sign", steps: [])
+    file.macros = [first, second]
+    let fakes = try Fakes(file: file)
+    let store = makeStore(fakes)
+    await store.send(.macroList(.binding(.set(\.selection, first.id)))) {
+      $0.macroList.selection = first.id
+      $0.keymapList.selection = nil
+      $0.editor = nil
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: first.id) }
+    }
+    let firstTask = await store.send(.macroEditor(.task)) { $0.macroEditor?.labels = fakes.labels.value }
+
+    await store.send(.macroList(.binding(.set(\.selection, second.id)))) {
+      $0.macroList.selection = second.id
+      $0.macroEditor = fakes.makeState { MacroEditorFeature.State(macroID: second.id) }
+    }
+    let secondTask = await store.send(.macroEditor(.task)) { $0.macroEditor?.labels = fakes.labels.value }
+    #expect(store.state.macroEditor?.name == "Sign")
+
+    // The first macro's watcher may still be running; its removal doesn't close the second's editor.
+    store.state.$configuration.withLock { _ = $0.macros.remove(id: first.id) }
+    await store.receive(\.macroEditor.macroChanged)
+    await firstTask.cancel()
+    await secondTask.cancel()
+    #expect(store.state.macroList.selection == second.id)
+  }
+
   @Test func initialMacroSelectionWithoutMacroIsCleared() throws {
     let fakes = try Fakes()
     let state = fakes.makeState {
