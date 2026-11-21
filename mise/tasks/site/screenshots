@@ -117,6 +117,10 @@ if ! exists "$BASE"; then
   boot "$BASE"
   VM="$BASE"
   fix_display "$BASE"
+  # The image allows its own tools Accessibility (osascript, sshd-keygen-wrapper, tart-guest-agent); a
+  # fresh Mac lists nothing there, so neither do the shots. Screen Recording and Automation stay.
+  tart exec "$BASE" sudo -n tccutil reset Accessibility >/dev/null
+  tart exec "$BASE" sudo -n tccutil reset ListenEvent >/dev/null
   show "$BASE"
   echo "In the VM, macOS asks whether the guest agent may control \"System Events\": click Allow."
   set_dark false
@@ -160,9 +164,9 @@ show "$VM"
 # name | window owner ("*" = frontmost app) | what to show
 shots=(
   "gatekeeper-open|*|In Finder, open Applications and double-click KeyLayers. Leave the dialog that asks whether to open it on screen."
-  "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). In Login Items & Extensions, scroll so both KeyLayers entries show, switches still off."
-  "accessibility|System Settings|Turn on both KeyLayers entries (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper."
-  "input-monitoring-add|System Settings|In KeyLayers, click Open Input Monitoring…. Show the list with its + button."
+  "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). Login Items & Extensions opens: scroll so the KeyLayers entry (\"2 items\") shows under App Background Activity, its switch still off."
+  "accessibility|System Settings|Turn on the KeyLayers switch (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper, the only entry."
+  "input-monitoring-add|System Settings|In System Settings, open Privacy & Security, then Input Monitoring. Show the list with its + button."
   "input-monitoring-goto|System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open."
   "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
 )
