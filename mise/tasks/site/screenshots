@@ -71,8 +71,8 @@ set_dark() {
   tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
 }
 
-# "x,y,w,h" (points) of the area covering all windows of an app, or of the frontmost window of any app
-# ("*") other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
+# "x,y,w,h" (points) of the area covering all windows of an app (or, with "^App", those in front of its
+# main window), or of the frontmost window of any app ("*") other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
 # dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. All windows, because the
 # file picker and its "Go to" field are windows of their own, and the picker sticks out of System
 # Settings' window.
@@ -82,15 +82,14 @@ front_window() {
     const owner = '$1';
     const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
       $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
-    // '~text': every app whose name contains text (the file picker is drawn by AppKit's panel service);
-    // the file picker also counts as part of the app that opened it.
-    const ownedBy = owner.startsWith('~')
-      ? w => w.kCGWindowOwnerName.toLowerCase().includes(owner.slice(1).toLowerCase())
-      : w => w.kCGWindowOwnerName === owner || /Open and Save Panel/i.test(w.kCGWindowOwnerName);
+    // '^App': the app's windows in front of its backmost (main) one, i.e. the file picker and its
+    // \"Go to\" field without the System Settings window behind them. (The list is front to back.)
+    const app = owner.replace(/^\\^/, '');
     const candidates = windows.filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
       ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
-      : ownedBy(w)));
-    const bounds = (owner === '*' ? candidates.slice(0, 1) : candidates).map(w => w.kCGWindowBounds);
+      : w.kCGWindowOwnerName === app));
+    const picked = owner === '*' ? candidates.slice(0, 1) : owner.startsWith('^') ? candidates.slice(0, -1) : candidates;
+    const bounds = picked.map(w => w.kCGWindowBounds);
     const x = Math.min(...bounds.map(b => b.X)), y = Math.min(...bounds.map(b => b.Y));
     const right = Math.max(...bounds.map(b => b.X + b.Width)), bottom = Math.max(...bounds.map(b => b.Y + b.Height));
     bounds.length === 0 ? '' : [x, y, right - x, bottom - y].join(',')"
@@ -190,14 +189,14 @@ set_dark false
 mkdir -p "$OUT"
 show "$VM"
 
-# name | window owner ("*" = frontmost app, "~text" = apps whose name contains text) | what to show
+# name | window owner ("*" = frontmost app, "^App" = App's windows in front of its main one) | what to show
 # | optional: how to reopen the window for the dark version
 shots=(
   "gatekeeper-open|*|In Finder, open Applications and double-click KeyLayers. Leave the dialog that asks whether to open it on screen."
   "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). Login Items & Extensions opens: scroll so the KeyLayers entry (\"2 items\") shows under App Background Activity, its switch still off."
   "accessibility|System Settings|Turn on the KeyLayers switch (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper, the only entry."
   "input-monitoring-add|System Settings|In System Settings, open Privacy & Security, then Input Monitoring. Show the list with its + button."
-  "input-monitoring-goto|~Open and Save Panel|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open.|Press Escape twice, then click + again, press Command-Shift-G and paste the path."
+  "input-monitoring-goto|^System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open.|Press Escape twice, then click + again, press Command-Shift-G and paste the path."
   "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
 )
 
