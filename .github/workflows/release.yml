@@ -1,8 +1,11 @@
 name: Release
 
 # Builds the notarized KeyLayers.zip (mise run release: archive, notarize, package) and keeps it as
-# this run's artifact. Manual for now; publishing a GitHub Release comes later.
+# this run's artifact. A pushed version tag (v1.2.3) also publishes it: a GitHub Release with the
+# zip and the signed Sparkle appcast, which installed copies check for updates.
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 # One release at a time, and never cancelled: killing a run halfway through notarization is worse
@@ -12,22 +15,68 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 defaults:
   run:
     shell: /bin/bash --noprofile --norc -euo pipefail {0}
 
 jobs:
+  # The same checks as a pull request, on the commit being released: a tag on a commit whose tests
+  # fail (or that never went through main) publishes nothing. FNOX_AGE_KEY reaches the unit tests
+  # for the Tuist binary cache.
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  unit-tests:
+    uses: ./.github/workflows/unit-tests.yml
+    secrets: inherit
+
   release:
     name: Release
+    needs: [lint, unit-tests]
     # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
     runs-on: xcode-27
     timeout-minutes: 60
 
     steps:
+      # Before anything slow: a tag that isn't a version fails here. Every build gets this run's
+      # number as its build number (what Sparkle compares). Only tag builds get a version and a
+      # Sparkle feed; a dispatched build is 0.0.0 and never updates itself.
+      - name: Version
+        run: |
+          {
+            echo "TUIST_BUILD_NUMBER=${GITHUB_RUN_NUMBER}"
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::tag ${GITHUB_REF_NAME} is not a version tag like v1.2.3" >&2
+                exit 1
+              fi
+              echo "RELEASE_TAG=${GITHUB_REF_NAME}"
+              echo "TUIST_MARKETING_VERSION=${GITHUB_REF_NAME#v}"
+              echo "TUIST_SPARKLE_FEED_URL=https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
+            fi
+          } >> "${GITHUB_ENV}"
+
       - name: Checkout
         uses: actions/checkout@v7
+
+      # Before building: a tag lower than the latest release would become "latest" and downgrade
+      # every newer install (see mise/tasks/release/check-tag). Only "no release yet" counts as a
+      # first release; any other API error stops here.
+      - name: Check the tag is newer than the latest release
+        if: github.ref_type == 'tag'
+        run: |
+          if latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>&1)"; then
+            LATEST_TAG="${latest}" bash mise/tasks/release/check-tag
+          elif [[ "${latest}" == *"Not Found"* ]]; then
+            LATEST_TAG="" bash mise/tasks/release/check-tag
+          else
+            echo "::error::could not read the latest release: ${latest}" >&2
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       # Tuist.swift pins exactly Xcode 27.2; the image defaults to 27.1.
       - name: Select Xcode 27.2
@@ -46,10 +95,26 @@ jobs:
         env:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
 
-      # Uploaded as is (no second zip around it), so the download is KeyLayers.zip itself.
+      # Uploaded as is (no second zip around it), so the download is KeyLayers.zip itself. Before
+      # publishing, so a failed publish still leaves the build.
       - name: Upload KeyLayers.zip
         uses: actions/upload-artifact@v7
         with:
           path: build/release/KeyLayers.zip
           archive: false
           if-no-files-found: error
+
+      - name: Appcast
+        if: github.ref_type == 'tag'
+        run: fnox exec -- mise run release:appcast
+        env:
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+
+      # Marked latest, so the feed URL (releases/latest/download/appcast.xml) serves this appcast.
+      - name: Publish the GitHub Release
+        if: github.ref_type == 'tag'
+        run: |
+          gh release create "${RELEASE_TAG}" build/release/KeyLayers.zip build/release/appcast.xml \
+            --title "KeyLayers ${TUIST_MARKETING_VERSION}" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

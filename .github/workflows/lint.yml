@@ -1,14 +1,17 @@
 name: Lint
 
 # SwiftLint (strict) and SwiftFormat in lint mode (every file formatted): the two halves of `mise run lint`.
+# The release workflow also calls it, so a release only builds after the checks pass.
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_call:
 
 # A newer push to the same PR or branch supersedes the running check.
+# In a call from Release, github.workflow is "Release": its run never cancels (or is cancelled by) a push to main.
 concurrency:
-  group: lint-${{ github.ref }}
+  group: lint-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

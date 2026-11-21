@@ -26,6 +26,13 @@ key of the `ci` age recipient in `fnox.toml`). A fresh runner has no provisionin
 is also stored in fnox: `fnox set HELPER_PROVISIONING_PROFILE_DATA "$(base64 -i <file>.provisionprofile)"`,
 which `release:archive` installs when set. After regenerating the profile in the portal, update both.
 
+Publishing: push a version tag (`git tag v1.2.3 && git push origin v1.2.3`). The workflow runs lint and the unit
+tests on the tagged commit, then builds 1.2.3 (build number = its run number), signs the zip for Sparkle with
+`SPARKLE_ED_PRIVATE_KEY`, and creates the GitHub Release with `KeyLayers.zip` and `appcast.xml`. Installed copies find it through
+`releases/latest/download/appcast.xml`. Dispatched runs never publish and build 0.0.0 without an updater.
+A tag must be a higher version than the latest release (`release:check-tag`): a lower one would become "latest"
+and be offered to every newer install as an update. A release created by hand without `appcast.xml` breaks the feed.
+
 ## Core behaviour
 
 1. [ ] Install (unzip, move to /Applications) and launch. Complete "Permissions setup" below.
@@ -102,6 +109,20 @@ tests and "everything works as expected".
 - [x] After a rebuild the input daemon replaces itself without sudo: on the helper's next connection it logs
   "executable changed on disk; exiting…" and launchd starts the new version.
 - [ ] Media keys on an external ISO keyboard and a JIS keyboard: not verified.
+
+## Updates (Sparkle)
+
+Needs two tag releases (vN and vN+1) from the workflow and a public repository.
+
+- [ ] A dev build and a dispatched workflow build have no KeyLayers → Check for Updates… item.
+- [ ] Install vN, grant the permissions, and confirm remapping works. KeyLayers → Check for Updates… offers
+  vN+1 with the GitHub Release page as release notes.
+- [ ] Install the update: the configurator relaunches as vN+1; within a few seconds
+  `launchctl print gui/$(id -u)/<prefix>.helper` shows a new PID and `plutil -p` on the installed helper shows
+  vN+1; the input daemon has restarted too (`sudo launchctl print system/<prefix>.inputservice`).
+- [ ] Remapping works after the update without any new permission prompt (Accessibility, Input Monitoring).
+- [ ] With the helper quit from its menu before updating, it stays quit after the update.
+- [ ] With no newer release, Check for Updates… says KeyLayers is up to date.
 
 ## Security
 

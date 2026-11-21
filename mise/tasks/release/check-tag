@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Fail unless RELEASE_TAG is a higher version than the latest release (LATEST_TAG)"
+set -euo pipefail
+
+# The update feed is the latest GitHub Release's appcast, and Sparkle compares build numbers (the
+# workflow's run number, which always grows). A release published after a higher one would become
+# "latest" and be offered to every newer install as an update: a silent downgrade. So a tag must be
+# a higher version than the latest release. LATEST_TAG empty: there is no release yet.
+fail() { echo "error: $*" >&2; exit 1; }
+
+[ -n "${RELEASE_TAG:-}" ] || fail "RELEASE_TAG is not set."
+latest="${LATEST_TAG:-}"
+if [ -z "${latest}" ]; then
+  echo "ok: ${RELEASE_TAG} is the first release"
+  exit 0
+fi
+[ "${RELEASE_TAG}" != "${latest}" ] || fail "${RELEASE_TAG} is already the latest release."
+highest="$(printf '%s\n%s\n' "${RELEASE_TAG#v}" "${latest#v}" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)"
+[ "${highest}" = "${RELEASE_TAG#v}" ] ||
+  fail "${RELEASE_TAG} is lower than the latest release ${latest}; publishing it would offer it as an update to every ${latest} install."
+echo "ok: ${RELEASE_TAG} is newer than the latest release ${latest}"

@@ -7,6 +7,7 @@ import SwiftUI
 struct ConfiguratorApp: App {
   @NSApplicationDelegateAdaptor(ConfiguratorAppDelegate.self) private var appDelegate
   private let store: StoreOf<AppFeature>
+  @State private var updater = Updater()
 
   init() {
     // Before anything reads a dependency or a shared value (the store's state does both).
@@ -26,6 +27,7 @@ struct ConfiguratorApp: App {
     }
     .defaultSize(width: 1000, height: 700)
     .commands {
+      UpdateCommands(updater: updater)
       ImportExportCommands(store: store)
     }
   }

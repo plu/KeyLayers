@@ -1,5 +1,5 @@
 import Foundation
-import InputDaemonCore
+import InputDaemonIPC
 import Testing
 
 struct ExecutableIdentityTests {

@@ -27,6 +27,17 @@ fail() { echo "error: $*" >&2; exit 1; }
   Store your 10-character Apple Developer Team ID with: fnox set TUIST_TEAM_ID
   Release builds must be signed with a team: the App Group and the helper's Mach service name contain it."
 
+# Sparkle: only tag builds update themselves. The release workflow sets TUIST_SPARKLE_FEED_URL for
+# them; the public key then comes from fnox. Without the feed URL (a local release, a
+# workflow_dispatch artifact) both stay empty and the configurator never starts its updater.
+if [ -n "${TUIST_SPARKLE_FEED_URL:-}" ]; then
+  [ -n "${SPARKLE_PUBLIC_KEY:-}" ] || fail "TUIST_SPARKLE_FEED_URL is set but SPARKLE_PUBLIC_KEY is not.
+  Sparkle's public key is stored in fnox: fnox get SPARKLE_PUBLIC_KEY"
+  export TUIST_SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY}"
+else
+  unset TUIST_SPARKLE_PUBLIC_KEY
+fi
+
 # A fresh machine (CI) has no profile installed: HELPER_PROVISIONING_PROFILE_DATA (base64 of the
 # .provisionprofile, in fnox) installs it where Xcode looks. Unset, the installed profiles are used.
 if [ -n "${HELPER_PROVISIONING_PROFILE_DATA:-}" ]; then
@@ -145,4 +156,11 @@ codesign --verify --strict --verbose=2 "${DAEMON}"
 codesign -d --entitlements - "${HELPER}" 2>&1 | grep -q "com.apple.developer.hid.virtual.device" ||
   fail "${HELPER} does not carry the com.apple.developer.hid.virtual.device entitlement"
 echo "ok: the helper carries the HID virtual device entitlement"
+info_plist="${APP}/Contents/Info.plist"
+feed="$(plutil -extract SUFeedURL raw -o - "${info_plist}" 2>/dev/null || true)"
+key="$(plutil -extract SUPublicEDKey raw -o - "${info_plist}" 2>/dev/null || true)"
+[ "${feed}" = "${TUIST_SPARKLE_FEED_URL:-}" ] && [ "${key}" = "${TUIST_SPARKLE_PUBLIC_KEY:-}" ] ||
+  fail "the app's Sparkle feed (${feed:-none}) or public key does not match what this build was given"
+if [ -n "${feed}" ]; then echo "ok: updates from ${feed}"; else echo "ok: no Sparkle feed (this build never updates itself)"; fi
+echo "ok: version $(plutil -extract CFBundleShortVersionString raw -o - "${info_plist}") ($(plutil -extract CFBundleVersion raw -o - "${info_plist}"))"
 echo "Archive and export done: ${APP}"
