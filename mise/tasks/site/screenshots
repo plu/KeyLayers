@@ -37,19 +37,41 @@ boot() {
 
 shutdown() { tart stop "$1" >/dev/null 2>&1 || true; }
 
+# The guest keeps its own resolution (1024x768 points in the image) whatever tart's display is, and
+# tart's refit changes it whenever the VM window is resized. Shots must be at 2x, so the guest is set to
+# 1440x900 points at 2x (2880x1800 pixels) with displayplacer after every boot.
+fix_display() {
+  local brew="/opt/homebrew/bin/brew" placer="/opt/homebrew/bin/displayplacer" list id mode screen
+  tart exec "$1" test -x "$placer" ||
+    tart exec "$1" env HOMEBREW_NO_AUTO_UPDATE=1 "$brew" install --quiet displayplacer >"$LOGS/brew.log" 2>&1 ||
+    fail "installing displayplacer in $1 failed (see $LOGS/brew.log)"
+  list="$(tart exec "$1" "$placer" list)"
+  id="$(sed -n 's/^Persistent screen id: //p' <<<"$list" | head -1)"
+  mode="$(sed -n 's/^ *mode \([0-9]*\): res:1440x900 .*scaling:on.*/\1/p' <<<"$list" | head -1)"
+  [[ -n "$id" && -n "$mode" ]] || fail "the VM's display has no 1440x900 HiDPI mode"
+  tart exec "$1" "$placer" "id:$id mode:$mode" >/dev/null
+  sleep 2
+  # shellcheck disable=SC2016 # ${} is JavaScript's
+  screen="$(tart exec "$1" osascript -l JavaScript -e \
+    'ObjC.import("AppKit"); const s = $.NSScreen.mainScreen; `${s.frame.size.width}x${s.frame.size.height}@${s.backingScaleFactor}`')"
+  [[ "$screen" == "1440x900@2" ]] || fail "the VM's screen is $screen, not 1440x900 at 2x"
+}
+
 set_dark() {
   tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
 }
 
 # "x,y,w,h" (points) of the frontmost window of an app, or of the frontmost window of any app ("*")
-# other than Terminal and Finder. Anything on top of it (a sheet, the file picker) is captured with it.
+# other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
+# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. Anything on top of the
+# window (a sheet, the file picker) is captured with it.
 front_window() {
   tart exec "$VM" osascript -l JavaScript -e "
     ObjC.import('CoreGraphics');
     const owner = '$1';
     const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
       $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
-    const w = windows.find(w => w.kCGWindowLayer === 0 && (owner === '*'
+    const w = windows.find(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
       ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
       : w.kCGWindowOwnerName === owner));
     w ? [w.kCGWindowBounds.X, w.kCGWindowBounds.Y, w.kCGWindowBounds.Width, w.kCGWindowBounds.Height].join(',') : ''"
@@ -80,11 +102,12 @@ fi
 if ! exists "$BASE"; then
   say "Preparing $BASE from $IMAGE (once)"
   tart clone "$IMAGE" "$BASE"
-  tart set "$BASE" --display 1920x1200
+  tart set "$BASE" --display 2880x1800 --no-display-refit
   trap 'shutdown "$BASE"; tart delete "$BASE" >/dev/null 2>&1 || true; rm -rf "$LOGS"' EXIT
   trap 'exit 130' INT TERM
   boot "$BASE"
   VM="$BASE"
+  fix_display "$BASE"
   echo "In the VM window, macOS asks whether the guest agent may control \"System Events\": click Allow."
   set_dark false
   tart exec "$VM" screencapture -x /tmp/check.png
@@ -107,7 +130,10 @@ trap 'exit 130' INT TERM
 
 say "Starting $VM (a clone of $BASE)"
 tart clone "$BASE" "$VM"
+# Older bases resize with the window; this one shouldn't.
+tart set "$VM" --display 2880x1800 --no-display-refit
 boot "$VM"
+fix_display "$VM"
 
 say "Installing the latest release in the VM"
 tart exec "$VM" curl -fsSL -o /tmp/KeyLayers.zip "$DOWNLOAD"
