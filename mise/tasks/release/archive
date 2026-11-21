@@ -27,6 +27,24 @@ fail() { echo "error: $*" >&2; exit 1; }
   Store your 10-character Apple Developer Team ID with: fnox set TUIST_TEAM_ID
   Release builds must be signed with a team: the App Group and the helper's Mach service name contain it."
 
+# A fresh machine (CI) has no profile installed: HELPER_PROVISIONING_PROFILE_DATA (base64 of the
+# .provisionprofile, in fnox) installs it where Xcode looks. Unset, the installed profiles are used.
+if [ -n "${HELPER_PROVISIONING_PROFILE_DATA:-}" ]; then
+  profile_tmp="$(mktemp)"
+  printf '%s' "${HELPER_PROVISIONING_PROFILE_DATA}" | base64 -d > "${profile_tmp}" 2>/dev/null || true
+  profile_uuid="$(security cms -D -i "${profile_tmp}" 2>/dev/null | plutil -extract UUID raw -o - - 2>/dev/null || true)"
+  if [ -z "${profile_uuid}" ]; then
+    rm -f "${profile_tmp}"
+    fail "HELPER_PROVISIONING_PROFILE_DATA is not a provisioning profile.
+  Store the helper's Developer ID profile with:
+    fnox set HELPER_PROVISIONING_PROFILE_DATA \"\$(base64 -i <file>.provisionprofile)\""
+  fi
+  profile_dir="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
+  mkdir -p "${profile_dir}"
+  mv "${profile_tmp}" "${profile_dir}/${profile_uuid}.provisionprofile"
+  echo "Installed provisioning profile ${profile_uuid} from HELPER_PROVISIONING_PROFILE_DATA"
+fi
+
 # The helper's profile is checked before anything is built: without Apple's approval of the HID
 # Virtual Device entitlement there is no profile, and the archive would fail late and obscurely.
 PROFILE_ERROR="No Developer ID provisioning profile for ${HELPER_BUNDLE_ID} — it requires Apple's approval of the HID Virtual Device entitlement
