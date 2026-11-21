@@ -61,6 +61,12 @@ struct ShellSnapshotTests {
   @MainActor private static let statuses: [String: StatusFeature.State] = [
     "notRunning": StatusFeature.State(helper: .notRunning, registration: .enabled, daemonRegistration: .enabled),
     "needsApproval": StatusFeature.State(helper: .notRunning, registration: .requiresApproval),
+    // The helper runs, but the input service still waits for its approval in Login Items.
+    "daemonNeedsApproval": StatusFeature.State(
+      helper: .running(HelperStatus(permissions: granted)),
+      registration: .enabled,
+      daemonRegistration: .requiresApproval
+    ),
     "permissionsMissing": StatusFeature.State(
       helper: .running(HelperStatus(permissions: PermissionStatus(accessibility: false))),
       registration: .enabled,
@@ -89,7 +95,8 @@ struct ShellSnapshotTests {
   ]
 
   @Test(arguments: [
-    "notRunning", "needsApproval", "permissionsMissing", "running", "paused", "inputServiceNeedsInputMonitoring",
+    "notRunning", "needsApproval", "daemonNeedsApproval", "permissionsMissing", "running", "paused",
+    "inputServiceNeedsInputMonitoring",
   ])
   func status(_ name: String) throws {
     let state = try #require(Self.statuses[name])

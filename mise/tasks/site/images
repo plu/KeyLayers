@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#MISE description="Copy the app screenshots for the website from the snapshot test references (light and dark)"
+set -euo pipefail
+
+# The references are the screenshots: mise run test:snapshot fails when the UI no longer matches them,
+# and mise run snapshot:record re-records them. This only copies them under the names the site uses.
+cd "$MISE_PROJECT_ROOT"
+snapshots="Tests/ConfiguratorSnapshotTests/__Snapshots__"
+out="docs/public/screenshots/app"
+
+# site name -> reference (without .light.png / .dark.png)
+images=(
+  "keyboard-base ReadmeSnapshotTests/readmeBase"
+  "keyboard-mod ReadmeSnapshotTests/readmeMod"
+  "window ShellSnapshotTests/appWindow"
+  "window-macro ShellSnapshotTests/appWindowWithMacroSelected"
+  "settings ShellSnapshotTests/settings"
+  "status-not-running ShellSnapshotTests/status_notRunning"
+  "status-needs-approval ShellSnapshotTests/status_needsApproval"
+  "status-daemon-needs-approval ShellSnapshotTests/status_daemonNeedsApproval"
+  "status-permissions-missing ShellSnapshotTests/status_permissionsMissing"
+  "status-input-monitoring ShellSnapshotTests/status_inputServiceNeedsInputMonitoring"
+  "status-running ShellSnapshotTests/status_running"
+  "status-paused ShellSnapshotTests/status_paused"
+)
+
+png_signature="89504e470d0a1a0a"
+mkdir -p "$out"
+for entry in "${images[@]}"; do
+  read -r name reference <<<"$entry"
+  for appearance in light dark; do
+    src="$snapshots/$reference.$appearance.png"
+    [[ -f "$src" ]] || { echo "error: $src is missing (mise run snapshot:record?)" >&2; exit 1; }
+    [[ "$(head -c 8 "$src" | xxd -p)" == "$png_signature" ]] ||
+      { echo "error: $src is a Git LFS pointer, not a PNG (git lfs pull)" >&2; exit 1; }
+    cp "$src" "$out/$name.$appearance.png"
+  done
+done
+echo "Copied ${#images[@]} screenshots (light and dark) to $out"

@@ -7,8 +7,9 @@ import SnapshotTesting
 import SwiftUI
 import Testing
 
-/// The README screenshots: the starter configuration only, running and active, US labels.
-/// `scripts/update-readme-images.sh` copies the light references to `docs/images/`.
+/// The README and website screenshots: the starter configuration only, running and active, US labels.
+/// `scripts/update-readme-images.sh` copies the light references to `docs/images/`; `mise run site:images`
+/// copies both appearances to the website.
 @MainActor
 struct ReadmeSnapshotTests {
   private func window(layer: LayerName) throws -> some View {
@@ -26,19 +27,12 @@ struct ReadmeSnapshotTests {
   }
 
   @Test func readmeBase() throws {
-    try assertLight(window(layer: .base))
+    try assertBothAppearances(window(layer: .base), size: Self.size)
   }
 
   @Test func readmeMod() throws {
-    try assertLight(window(layer: .mod))
+    try assertBothAppearances(window(layer: .mod), size: Self.size)
   }
 
-  private func assertLight(_ view: some View, testName: String = #function) {
-    assertSnapshot(
-      of: host(view, size: CGSize(width: 1000, height: 700), dark: false),
-      as: .image(precision: 0.995, perceptualPrecision: 0.98),
-      named: "light",
-      testName: testName
-    )
-  }
+  private static let size = CGSize(width: 1000, height: 700)
 }
