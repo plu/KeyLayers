@@ -71,23 +71,26 @@ set_dark() {
   tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
 }
 
-# "x,y,w,h" (points) of the largest window of an app, or of the frontmost window of any app ("*")
-# other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
-# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. The largest, because
-# the file picker's "Go to" field is a small window of its own; anything on top of the main window
-# (a sheet, the file picker, that field) is captured with it.
+# "x,y,w,h" (points) of the area covering all windows of an app, or of the frontmost window of any app
+# ("*") other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
+# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. All windows, because the
+# file picker and its "Go to" field are windows of their own, and the picker sticks out of System
+# Settings' window.
 front_window() {
   tart exec "$VM" osascript -l JavaScript -e "
     ObjC.import('CoreGraphics');
     const owner = '$1';
     const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
       $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
+    // The file picker may be drawn by AppKit's panel service rather than the app itself.
+    const ownedBy = w => w.kCGWindowOwnerName === owner || /Open and Save Panel/i.test(w.kCGWindowOwnerName);
     const candidates = windows.filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
       ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
-      : w.kCGWindowOwnerName === owner));
-    const area = w => w.kCGWindowBounds.Width * w.kCGWindowBounds.Height;
-    const w = owner === '*' ? candidates[0] : candidates.sort((a, b) => area(b) - area(a))[0];
-    w ? [w.kCGWindowBounds.X, w.kCGWindowBounds.Y, w.kCGWindowBounds.Width, w.kCGWindowBounds.Height].join(',') : ''"
+      : ownedBy(w)));
+    const bounds = (owner === '*' ? candidates.slice(0, 1) : candidates).map(w => w.kCGWindowBounds);
+    const x = Math.min(...bounds.map(b => b.X)), y = Math.min(...bounds.map(b => b.Y));
+    const right = Math.max(...bounds.map(b => b.X + b.Width)), bottom = Math.max(...bounds.map(b => b.Y + b.Height));
+    bounds.length === 0 ? '' : [x, y, right - x, bottom - y].join(',')"
 }
 
 # Captures the window in light, then dark, then returns to light for the next step.
