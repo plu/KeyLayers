@@ -77,9 +77,11 @@ Setup (Xcode 27.2; `Tuist.swift` pins it):
 1. `mise install`, then `git lfs install && git lfs pull` (snapshot references are in Git LFS).
 2. `cp mise.local.toml.example mise.local.toml` and set `TUIST_TEAM_ID` and `TUIST_BUNDLE_ID_PREFIX`
    (mise loads it for every task; the file is git-ignored).
-3. In the developer portal, register the App IDs `<prefix>.configurator` (no capabilities) and
-   `<prefix>.helper` with the "HID Virtual Device (development)" capability. `<prefix>.inputd` needs
-   no App ID.
+3. In the developer portal, register the App IDs `<prefix>.dev.configurator` (no capabilities) and
+   `<prefix>.dev.helper` with the "HID Virtual Device (development)" capability. `<prefix>.dev.inputd`
+   needs no App ID. Debug builds use `<prefix>.dev` for every identifier (App Group
+   `<TEAMID>.<prefix>.dev`, so their own configuration file) and show as "KeyLayers Dev", so they never
+   collide with an installed release; release builds use `<prefix>` itself.
 4. Sign in to that team in Xcode (Settings, Accounts).
 5. `mise run build`. It passes `-allowProvisioningUpdates`, so Xcode creates the development profile.
    After each Debug build the helper restarts and the input service replaces itself on the helper's

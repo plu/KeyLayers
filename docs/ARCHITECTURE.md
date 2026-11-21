@@ -52,7 +52,8 @@ seize.
 | Helper `KeyLayersHelper` | `<prefix>.helper` | user | login item, `SMAppService.agent` |
 | Input daemon `KeyLayersInputDaemon` | `<prefix>.inputd` | root | `SMAppService.daemon` |
 
-The `<prefix>` comes from `TUIST_BUNDLE_ID_PREFIX` (default `com.plunien.keylayers`).
+The `<prefix>` comes from `TUIST_BUNDLE_ID_PREFIX` (default `com.plunien.keylayers`). Debug builds
+append `.dev` to it (see "Signing and builds"), so a dev build runs beside an installed release.
 
 **Configurator** (`Apps/Configurator`, `ConfiguratorFeature`). The window where keymaps are edited on a
 drawing of the user's own keyboard. It writes the configuration file, registers the helper and the
@@ -156,11 +157,11 @@ input.
 ## Configuration file
 
 The configurator and the helper share one JSON file, `configuration.json`, in the App Group
-container `<TEAMID>.com.plunien.keylayers` (`AppIdentifiers.configurationURL`; ad-hoc builds without a
-team fall back to Application Support). Both use swift-sharing's `@Shared(.configuration)` file
-storage. The configurator writes; the helper only reads and applies every change at once. A file that
-can't be read keeps the last good configuration in the helper, and the error is shown in the
-configurator's status area.
+container `<TEAMID>.<prefix>` (`AppIdentifiers.configurationURL`; ad-hoc builds without a
+team fall back to Application Support). Debug builds use their own group, `<TEAMID>.<prefix>.dev`.
+Both use swift-sharing's `@Shared(.configuration)` file storage. The configurator writes; the helper
+only reads and applies every change at once. A file that can't be read keeps the last good
+configuration in the helper, and the error is shown in the configurator's status area.
 
 The top level holds `formatVersion` (1), the settings (double-tap timeout, HUD on/off), the ordered
 keymaps and the default keymap's ID. Each layer is a sparse map from `KeyID` to `KeyAction`; absent keys
@@ -237,6 +238,25 @@ The helper doesn't need Input Monitoring: it never reads input itself.
   (`HELPER_PROVISIONING_PROFILE`); `release:archive` fails early without it.
 - The configurator and the daemon need no profile. The daemon is a command-line tool with its
   Info.plist embedded in the binary.
+- **Dev and release identities.** Debug builds use the prefix `<prefix>.dev` for everything that
+  identifies an installation: bundle IDs (`<prefix>.dev.configurator`, `.dev.helper`, `.dev.inputd`),
+  launchd labels and plists, both Mach services and the App Group (`<TEAMID>.<prefix>.dev`). In
+  System Settings they show as "KeyLayers Dev" and "KeyLayers Helper Dev". Release builds keep the
+  plain prefix, unchanged since the first release. `Project.swift` derives both sets from one
+  function (`identitySettings`) as per-configuration project settings; Info.plists, entitlements,
+  `AppIdentifiers` and `scripts/embed-helper.sh` read only these build settings. The reason: with a
+  shared identity, a dev build and an installed release clobber each other on one Mac. Background
+  Task Management keeps one record per bundle ID and moves it between the two copies, regenerating
+  the helper item's UUID, so launchd's job for the other copy fails with `EX_CONFIG`; and TCC pins
+  the Accessibility and Input Monitoring grants to one signing certificate (Apple Development or
+  Developer ID), so the other build is denied while System Settings shows it as allowed.
+- The dev App Group is separate on purpose: a dev build reads and writes its own
+  `configuration.json`, so experiments never touch the configuration of the installed release.
+- Both builds share `VirtualKeyboardIdentity` (vendor ID `0x4B4C`, unique ID prefix
+  `com.plunien.keylayers.virtual.`), so each daemon ignores the virtual keyboards of both builds. Only
+  one build remaps a given keyboard at a time: the seize is exclusive, so if both run, the second
+  build's seize of a keyboard the first holds fails and shows as a seize error. A helper creates
+  virtual keyboards only for seized keyboards, so the two builds never mirror the same keyboard.
 - `mise run release` archives, exports with Developer ID, notarizes and packages
   `build/release/KeyLayers.zip` (see `docs/MANUAL-CHECKLIST.md`, "Release").
 
