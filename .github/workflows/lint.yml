@@ -1,0 +1,40 @@
+name: Lint
+
+# SwiftLint (strict) and SwiftFormat in lint mode, the same `mise run lint` as locally.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR or branch supersedes the running check.
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  lint:
+    name: Lint
+    # SwiftLint loads SourceKit from the selected Xcode; any recent one will do, so the standard
+    # image is enough (the release needs xcode-27 for Tuist's pinned Xcode).
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Only the two linters, at the versions mise.toml pins; tuist, fnox and git-lfs aren't needed.
+      - name: mise
+        uses: jdx/mise-action@v5
+        with:
+          install_args: swiftlint swiftformat
+
+      - name: Lint
+        run: mise run lint
