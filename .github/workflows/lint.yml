@@ -30,11 +30,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Only the two linters, at the versions mise.toml pins; tuist, fnox and git-lfs aren't needed.
+      # Installs the tools mise.toml pins, so CI lints with the same versions as local runs.
       - name: mise
         uses: jdx/mise-action@v5
-        with:
-          install_args: swiftlint swiftformat
 
       # The two halves of `mise run lint` as separate steps, so a failure says which one.
       - name: SwiftLint
