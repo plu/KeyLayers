@@ -114,13 +114,17 @@ tests and "everything works as expected".
 
 Needs two tag releases (vN and vN+1) from the workflow and a public repository.
 
+Verified 2026-11-21 updating v0.0.1 (build 6) to v0.0.2 (build 7), both from tag releases of the same commit.
+
 - [ ] A dev build and a dispatched workflow build have no KeyLayers → Check for Updates… item.
-- [ ] Install vN, grant the permissions, and confirm remapping works. KeyLayers → Check for Updates… offers
-  vN+1 with the GitHub Release page as release notes.
-- [ ] Install the update: the configurator relaunches as vN+1; within a few seconds
+- [x] Install vN, grant the permissions, and confirm remapping works. KeyLayers → Check for Updates… offers
+  vN+1 with the GitHub Release page as release notes. (Offer verified; the release notes link not checked.)
+- [x] Install the update: the configurator relaunches as vN+1; within a few seconds
   `launchctl print gui/$(id -u)/<prefix>.helper` shows a new PID and `plutil -p` on the installed helper shows
-  vN+1; the input daemon has restarted too (`sudo launchctl print system/<prefix>.inputservice`).
-- [ ] Remapping works after the update without any new permission prompt (Accessibility, Input Monitoring).
+  vN+1; the input daemon has restarted too (`sudo launchctl print system/<prefix>.inputservice`). Result: the
+  app, helper and daemon all read 0.0.2 (7); the three processes restarted within 3 s of each other; the helper's
+  last exit code was 75 (EX_TEMPFAIL, its restart for an update), the daemon's 0 (its self-replacement).
+- [x] Remapping works after the update without any new permission prompt (Accessibility, Input Monitoring).
 - [ ] With the helper quit from its menu before updating, it stays quit after the update.
 - [ ] With no newer release, Check for Updates… says KeyLayers is up to date.
 
