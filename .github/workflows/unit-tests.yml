@@ -1,7 +1,8 @@
 name: Unit Tests
 
-# The UnitTests scheme (`mise run test:unit`). It builds only frameworks and test bundles, so it needs no
-# secrets: without TUIST_TEAM_ID everything is signed ad hoc.
+# The UnitTests scheme (`mise run test:unit`). It builds only frameworks and test bundles, signed ad hoc
+# (no TUIST_TEAM_ID). The only secret is the Tuist token, for the binary cache of the external
+# packages; without it (a pull request from a fork) the tests still run, building everything from source.
 on:
   pull_request:
   push:
@@ -49,5 +50,24 @@ jobs:
       - name: mise
         uses: jdx/mise-action@v5
 
+      # Only TUIST_TOKEN, not `fnox exec`: that would also set TUIST_TEAM_ID, and the tests would then need
+      # an Apple signing identity this runner doesn't have. fnox's output isn't masked like a secret is.
+      - name: Tuist token
+        env:
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+        run: |
+          if [[ -z "${FNOX_AGE_KEY}" ]]; then
+            echo "No FNOX_AGE_KEY (a fork's pull request): no binary cache, everything builds from source."
+            exit 0
+          fi
+          token="$(fnox get -P ci TUIST_TOKEN)"
+          echo "::add-mask::${token}"
+          echo "TUIST_TOKEN=${token}" >> "${GITHUB_ENV}"
+
       - name: Unit tests
         run: mise run test:unit
+
+      # After the tests, so a broken main doesn't spend time uploading. Pull requests only read the cache.
+      - name: Warm the Tuist cache
+        if: ${{ github.ref == 'refs/heads/main' && env.TUIST_TOKEN != '' }}
+        run: mise run cache:warm

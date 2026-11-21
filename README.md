@@ -98,6 +98,10 @@ Setup (Xcode 27.2; `Tuist.swift` pins it):
 | `DEVELOPER_ID_CERTIFICATE` | Release only, optional: base64 .p12 instead of a login keychain identity | none |
 
 `fnox.toml` holds the maintainer's age-encrypted secrets, which only the author and CI can decrypt.
+
+No Tuist account is needed. The project is connected to the [Tuist server](https://tuist.dev/plu/keylayers)
+for a shared binary cache of the external packages (TCA and its dependencies); without a login Tuist simply
+builds them from source. Maintainers get the cache locally with `tuist auth login`.
 Everyone else uses `mise.local.toml` or plain environment variables.
 
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) explains how the three parts work together,

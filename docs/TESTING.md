@@ -12,8 +12,14 @@ Every check runs from the command line through mise; nothing needs Xcode's UI.
 | `mise run lint` | SwiftLint (strict) and SwiftFormat in lint mode (`lint:swiftlint` and `lint:swiftformat` run one) |
 
 On GitHub, every pull request and push to `main` runs `lint:swiftlint`, `lint:swiftformat` (workflow `Lint`)
-and `test:unit` (workflow `Unit Tests`). The unit tests need no secrets: without `TUIST_TEAM_ID` they build
-signed ad hoc.
+and `test:unit` (workflow `Unit Tests`). The unit tests build signed ad hoc (no `TUIST_TEAM_ID`).
+
+The external packages come from the Tuist binary cache (`plu/keylayers`, the `only-external` profile in
+`Tuist.swift`). CI reads it with `TUIST_TOKEN`, an account token scoped to the project and kept in fnox's
+`ci` profile, so it never shadows a developer's own `tuist auth login`. Each push to `main` refills it with
+`mise run cache:warm`; run that locally (`fnox exec -P ci -- mise run cache:warm`, or logged in) after
+changing `Tuist/Package.resolved` or Xcode. Without a token, for example a fork's pull request, everything
+builds from source. Release archives never use the cache (`tuist generate --no-binary-cache`).
 
 To run one test while iterating:
 
