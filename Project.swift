@@ -6,7 +6,27 @@ let prefix = Environment.bundleIdPrefix.getString(default: "com.plunien.keylayer
 /// entitlement). Set only by `mise run release:archive` (as TUIST_HELPER_PROVISIONING_PROFILE);
 /// empty in dev builds, which sign automatically and need no profile name.
 let helperProfile = Environment.helperProvisioningProfile.getString(default: "")
-let groupPrefix = teamId.isEmpty ? prefix : "\(teamId).\(prefix)"
+
+/// Everything that identifies one installation of KeyLayers to macOS: bundle IDs, launchd labels and
+/// plists, Mach services, the App Group (and with it the configuration file), and the names shown
+/// in System Settings. Debug builds use `<prefix>.dev` and "… Dev" names, so a development build and
+/// the installed release never share a Background Task Management record, TCC grant, Mach service or
+/// configuration file. Release keeps the plain prefix: existing installs depend on it.
+func identitySettings(prefix: String, displayNameSuffix: String) -> SettingsDictionary {
+  let groupPrefix = teamId.isEmpty ? prefix : "\(teamId).\(prefix)"
+  return [
+    "APP_GROUP_ID": .string(groupPrefix),
+    "HELPER_MACH_SERVICE_NAME": .string("\(groupPrefix).helper"),
+    "HELPER_BUNDLE_ID": .string("\(prefix).helper"),
+    "CONFIGURATOR_BUNDLE_ID": .string("\(prefix).configurator"),
+    "HELPER_LAUNCHD_PLIST_NAME": .string("\(prefix).helper.plist"),
+    "INPUT_DAEMON_LABEL": .string("\(prefix).inputd"),
+    "INPUT_DAEMON_MACH_SERVICE_NAME": .string("\(groupPrefix).inputd"),
+    "INPUT_DAEMON_PLIST_NAME": .string("\(prefix).inputd.plist"),
+    "CONFIGURATOR_DISPLAY_NAME": .string("KeyLayers\(displayNameSuffix)"),
+    "HELPER_DISPLAY_NAME": .string("KeyLayers Helper\(displayNameSuffix)"),
+  ]
+}
 
 var baseSettings: SettingsDictionary = [
   "SWIFT_VERSION": "6",
@@ -15,18 +35,18 @@ var baseSettings: SettingsDictionary = [
   "MACOSX_DEPLOYMENT_TARGET": "26.0",
   "ENABLE_HARDENED_RUNTIME": "YES",
   "DEVELOPMENT_TEAM": .string(teamId),
-  "APP_GROUP_ID": .string(groupPrefix),
-  "HELPER_MACH_SERVICE_NAME": .string("\(groupPrefix).helper"),
-  "HELPER_BUNDLE_ID": .string("\(prefix).helper"),
-  "CONFIGURATOR_BUNDLE_ID": .string("\(prefix).configurator"),
-  "HELPER_LAUNCHD_PLIST_NAME": .string("\(prefix).helper.plist"),
-  "INPUT_DAEMON_LABEL": .string("\(prefix).inputd"),
-  "INPUT_DAEMON_MACH_SERVICE_NAME": .string("\(groupPrefix).inputd"),
-  "INPUT_DAEMON_PLIST_NAME": .string("\(prefix).inputd.plist"),
 ]
 if teamId.isEmpty {
   baseSettings["CODE_SIGN_IDENTITY"] = "-"
 }
+
+let projectSettings: Settings = .settings(
+  base: baseSettings,
+  configurations: [
+    .debug(name: .debug, settings: identitySettings(prefix: "\(prefix).dev", displayNameSuffix: " Dev")),
+    .release(name: .release, settings: identitySettings(prefix: prefix, displayNameSuffix: "")),
+  ]
+)
 
 /// Tuist's default target settings sign macOS apps ad hoc (`CODE_SIGN_IDENTITY = "-"`), which
 /// overrides the project-level team. Ad-hoc dev builds break the helper's XPC peer check (it pins
@@ -79,7 +99,7 @@ let snapshotTestTargets: [TargetReference] = ["HelperSnapshotTests", "Configurat
 
 let project = Project(
   name: "KeyLayers",
-  settings: .settings(base: baseSettings),
+  settings: projectSettings,
   targets: [
     framework("KeymapModel", deps: [.external(name: "IdentifiedCollections")]),
     unitTests("KeymapModel"),
@@ -213,7 +233,7 @@ let project = Project(
       bundleId: "$(HELPER_BUNDLE_ID)",
       deploymentTargets: .macOS("26.0"),
       infoPlist: .extendingDefault(with: [
-        "CFBundleDisplayName": "KeyLayers Helper",
+        "CFBundleDisplayName": "$(HELPER_DISPLAY_NAME)",
         "LSUIElement": true,
         "AppGroupIdentifier": "$(APP_GROUP_ID)",
         "HelperMachServiceName": "$(HELPER_MACH_SERVICE_NAME)",
@@ -270,7 +290,7 @@ let project = Project(
       bundleId: "$(CONFIGURATOR_BUNDLE_ID)",
       deploymentTargets: .macOS("26.0"),
       infoPlist: .extendingDefault(with: [
-        "CFBundleDisplayName": "KeyLayers",
+        "CFBundleDisplayName": "$(CONFIGURATOR_DISPLAY_NAME)",
         "AppGroupIdentifier": "$(APP_GROUP_ID)",
         "HelperMachServiceName": "$(HELPER_MACH_SERVICE_NAME)",
         "HelperLaunchdPlistName": "$(HELPER_LAUNCHD_PLIST_NAME)",
