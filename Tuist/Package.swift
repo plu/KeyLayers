@@ -27,5 +27,6 @@ let package = Package(
     .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.19.7"),
     .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "1.1.1"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
+    .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.1"),
   ]
 )

@@ -36,6 +36,10 @@ func identitySettings(prefix: String, displayNameSuffix: String) -> SettingsDict
 /// `v`, and its run number); everything else is a 0.0.0 build.
 let marketingVersion = Environment.marketingVersion.getString(default: "0.0.0")
 let buildNumber = Environment.buildNumber.getString(default: "1")
+/// Sparkle's appcast URL and EdDSA public key. Only the release workflow's tag builds set them; the
+/// configurator starts its updater only when both are set, so other builds never update themselves.
+let sparkleFeedURL = Environment.sparkleFeedUrl.getString(default: "")
+let sparklePublicKey = Environment.sparklePublicKey.getString(default: "")
 
 var baseSettings: SettingsDictionary = [
   "SWIFT_VERSION": "6",
@@ -46,6 +50,8 @@ var baseSettings: SettingsDictionary = [
   "DEVELOPMENT_TEAM": .string(teamId),
   "MARKETING_VERSION": .string(marketingVersion),
   "CURRENT_PROJECT_VERSION": .string(buildNumber),
+  "SPARKLE_FEED_URL": .string(sparkleFeedURL),
+  "SPARKLE_PUBLIC_KEY": .string(sparklePublicKey),
 ]
 if teamId.isEmpty {
   baseSettings["CODE_SIGN_IDENTITY"] = "-"
@@ -313,6 +319,9 @@ let project = Project(
         "HelperLaunchdPlistName": "$(HELPER_LAUNCHD_PLIST_NAME)",
         "HelperBundleIdentifier": "$(HELPER_BUNDLE_ID)",
         "InputDaemonPlistName": "$(INPUT_DAEMON_PLIST_NAME)",
+        "SUFeedURL": "$(SPARKLE_FEED_URL)",
+        "SUPublicEDKey": "$(SPARKLE_PUBLIC_KEY)",
+        "SUEnableAutomaticChecks": true,
       ]),
       sources: ["Apps/Configurator/Sources/**"],
       resources: ["Apps/Configurator/Resources/AppIcon.icon"],
@@ -340,6 +349,7 @@ let project = Project(
         .target(name: "KeyLayersHelper"),
         .target(name: "KeyLayersInputDaemon"),
         .external(name: "ComposableArchitecture"),
+        .external(name: "Sparkle"),
       ],
       settings: .settings(base: appSigningSettings.merging([
         // The script copies a whole app bundle, which the user-script sandbox doesn't allow.
