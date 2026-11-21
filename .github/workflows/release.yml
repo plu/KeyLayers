@@ -38,6 +38,10 @@ jobs:
     # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
     runs-on: xcode-27
     timeout-minutes: 60
+    # contents: publishing the release; actions: starting the Site workflow afterwards.
+    permissions:
+      contents: write
+      actions: write
 
     steps:
       # Before anything slow: a tag that isn't a version fails here. Every build gets this run's
@@ -116,5 +120,13 @@ jobs:
         run: |
           gh release create "${RELEASE_TAG}" build/release/KeyLayers.zip build/release/appcast.xml \
             --title "KeyLayers ${TUIST_MARKETING_VERSION}" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # The website shows the latest release's version, read when it is built, so a release rebuilds it.
+      # The built-in token can't trigger workflows by events, but it may start one with workflow_dispatch.
+      - name: Rebuild the website
+        if: github.ref_type == 'tag'
+        run: gh workflow run site.yml --ref main --repo "${GITHUB_REPOSITORY}"
         env:
           GH_TOKEN: ${{ github.token }}
