@@ -6,3 +6,8 @@ build/
 .DS_Store
 Tuist/.build/
 mise.local.toml
+
+# The website
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/

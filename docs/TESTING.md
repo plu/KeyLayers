@@ -13,7 +13,8 @@ Every check runs from the command line through mise; nothing needs Xcode's UI.
 
 On GitHub, every pull request and push to `main` runs `lint:swiftlint`, `lint:swiftformat` (workflow `Lint`)
 and `test:unit` (workflow `Unit Tests`). The unit tests build signed ad hoc (no `TUIST_TEAM_ID`). The `Release`
-workflow calls both first and only builds when they pass.
+workflow calls both first and only builds when they pass. The `Site` workflow builds the website
+(`mise run site:build`) on pull requests that touch it and deploys it to GitHub Pages from `main`.
 
 The external packages come from the Tuist binary cache (`plu/keylayers`, the `only-external` profile in
 `Tuist.swift`). CI reads it with `TUIST_TOKEN`, an account token scoped to the project and kept in fnox's

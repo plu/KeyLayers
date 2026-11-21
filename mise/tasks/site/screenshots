@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+#MISE description="Capture the System Settings screenshots for the website in a throwaway tart VM (guided)"
+#USAGE flag "--reset-base" help="Delete and recreate the prepared base VM (e.g. after a new macOS image)"
+#USAGE flag "--only <name>" help="Capture only this shot (e.g. input-monitoring-goto); you still walk through the steps before it"
+set -euo pipefail
+
+# The setup guide shows System Settings as a fresh install sees it, so the shots come from a VM that
+# never had KeyLayers: a clone of a prepared base, deleted afterwards. The base is cloned once from the
+# vanilla Tahoe image and only holds the one approval the capture needs (Automation of System Events,
+# to switch between light and dark). Screen Recording is already granted to the image's guest agent.
+#
+# You click through the setup in the VM through Screen Sharing (tart's own window can't be scaled while
+# the guest's screen stays at 2x; the Screen Sharing window can); the task tells you what to show, and
+# on Enter captures the window in light and dark into
+# docs/public/screenshots/system-settings/<name>.<light|dark>.png.
+cd "$MISE_PROJECT_ROOT"
+
+IMAGE="ghcr.io/cirruslabs/macos-tahoe-xcode:27"
+BASE="keylayers-screenshots-base"
+VM="keylayers-screenshots"
+OUT="docs/public/screenshots/system-settings"
+DOWNLOAD="https://github.com/plu/KeyLayers/releases/latest/download/KeyLayers.zip"
+DAEMON="/Applications/KeyLayers.app/Contents/Library/HelperTools/KeyLayersInputDaemon"
+
+LOGS="$(mktemp -d -t keylayers-screenshots)"
+
+fail() { echo "error: $*" >&2; exit 1; }
+say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
+exists() { tart list --quiet 2>/dev/null | grep -qx "$1"; }
+
+# Starts a VM without tart's window and waits for the guest agent.
+boot() {
+  tart run "$1" --no-graphics >"$LOGS/$1.log" 2>&1 &
+  for _ in $(seq 1 90); do
+    tart exec "$1" true >/dev/null 2>&1 && return 0
+    sleep 2
+  done
+  fail "$1 did not start (see $LOGS/$1.log)"
+}
+
+shutdown() { tart stop "$1" >/dev/null 2>&1 || true; }
+
+# Opens the VM in Screen Sharing (on in the image; user and password admin).
+show() {
+  open "vnc://admin:admin@$(tart ip "$1")"
+  echo "The VM opens in Screen Sharing (password: admin). Make the window as large as you like;"
+  echo "View > Turn Scaling On fits the VM's screen into it."
+}
+
+# The guest keeps its own resolution (1024x768 points in the image) whatever tart's display is, and
+# tart's refit changes it whenever the VM window is resized. Shots must be at 2x, so the guest is set to
+# 1440x900 points at 2x (2880x1800 pixels) with displayplacer after every boot.
+fix_display() {
+  local brew="/opt/homebrew/bin/brew" placer="/opt/homebrew/bin/displayplacer" list id mode screen
+  tart exec "$1" test -x "$placer" ||
+    tart exec "$1" env HOMEBREW_NO_AUTO_UPDATE=1 "$brew" install --quiet displayplacer >"$LOGS/brew.log" 2>&1 ||
+    fail "installing displayplacer in $1 failed (see $LOGS/brew.log)"
+  list="$(tart exec "$1" "$placer" list)"
+  id="$(sed -n 's/^Persistent screen id: //p' <<<"$list" | head -1)"
+  mode="$(sed -n 's/^ *mode \([0-9]*\): res:1440x900 .*scaling:on.*/\1/p' <<<"$list" | head -1)"
+  [[ -n "$id" && -n "$mode" ]] || fail "the VM's display has no 1440x900 HiDPI mode"
+  tart exec "$1" "$placer" "id:$id mode:$mode" >/dev/null
+  sleep 2
+  # shellcheck disable=SC2016 # ${} is JavaScript's
+  screen="$(tart exec "$1" osascript -l JavaScript -e \
+    'ObjC.import("AppKit"); const s = $.NSScreen.mainScreen; `${s.frame.size.width}x${s.frame.size.height}@${s.backingScaleFactor}`')"
+  [[ "$screen" == "1440x900@2" ]] || fail "the VM's screen is $screen, not 1440x900 at 2x"
+}
+
+set_dark() {
+  tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
+}
+
+# "x,y,w,h" (points) of the area covering all windows of an app (or, with "^App", those in front of its
+# main window), or of the frontmost window of any app ("*") other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
+# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. All windows, because the
+# file picker and its "Go to" field are windows of their own, and the picker sticks out of System
+# Settings' window.
+front_window() {
+  tart exec "$VM" osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    const owner = '$1';
+    const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
+      $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
+    // '^App': the app's windows in front of its backmost (main) one, i.e. the file picker and its
+    // \"Go to\" field without the System Settings window behind them. (The list is front to back.)
+    const app = owner.replace(/^\\^/, '');
+    const candidates = windows.filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
+      ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
+      : w.kCGWindowOwnerName === app));
+    const picked = owner === '*' ? candidates.slice(0, 1) : owner.startsWith('^') ? candidates.slice(0, -1) : candidates;
+    const bounds = picked.map(w => w.kCGWindowBounds);
+    const x = Math.min(...bounds.map(b => b.X)), y = Math.min(...bounds.map(b => b.Y));
+    const right = Math.max(...bounds.map(b => b.X + b.Width)), bottom = Math.max(...bounds.map(b => b.Y + b.Height));
+    bounds.length === 0 ? '' : [x, y, right - x, bottom - y].join(',')"
+}
+
+window_owners() {
+  tart exec "$VM" osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    [...new Set(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
+      $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)))
+      .filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8).map(w => w.kCGWindowOwnerName))].join(', ')"
+}
+
+# Captures the window in light, then dark, then returns to light for the next step. With "reopen", the
+# window keeps the appearance it opened with (the file picker), so you reopen it in dark in between.
+capture() {
+  local name="$1" owner="$2" reopen="${3:-}" rect appearance file
+  for appearance in light dark; do
+    set_dark "$([[ $appearance == dark ]] && echo true || echo false)"
+    if [[ $appearance == dark && -n "$reopen" ]]; then
+      echo "The VM is dark now. $reopen"
+      read -r -p "Press Enter to capture the dark version… "
+    fi
+    sleep 2
+    rect="$(front_window "$owner")"
+    [[ -n "$rect" ]] || fail "no window of ${owner/\*/any app} on screen for $name; on screen: $(window_owners)"
+    file="$OUT/$name.$appearance.png"
+    tart exec "$VM" screencapture -x -R"$rect" /tmp/shot.png
+    tart exec "$VM" cat /tmp/shot.png >"$file"
+    (($(wc -c <"$file") > 10000)) || fail "$file is empty (is Screen Recording still granted in the VM?)"
+    echo "  saved $file"
+  done
+  set_dark false
+}
+
+if [[ "${usage_reset_base:-false}" == "true" ]] && exists "$BASE"; then
+  say "Deleting $BASE"
+  tart delete "$BASE"
+fi
+
+if ! exists "$BASE"; then
+  say "Preparing $BASE from $IMAGE (once)"
+  tart clone "$IMAGE" "$BASE"
+  tart set "$BASE" --display 2880x1800 --no-display-refit
+  trap 'shutdown "$BASE"; tart delete "$BASE" >/dev/null 2>&1 || true; rm -rf "$LOGS"' EXIT
+  trap 'exit 130' INT TERM
+  boot "$BASE"
+  VM="$BASE"
+  fix_display "$BASE"
+  # The image lets its own tools post events (osascript, sshd-keygen-wrapper, tart-guest-agent, Python),
+  # and Tahoe lists those under Accessibility; a fresh Mac lists nothing there, so neither do the shots.
+  # Only their rows go: Screen Sharing's agent needs the permission for your mouse and keyboard, and
+  # Screen Recording and Automation stay. (SIP is off in the image, so root can edit the database.)
+  tart exec "$BASE" sudo -n sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+    "delete from access where service = 'kTCCServicePostEvent' and (client in
+      ('/usr/bin/osascript', '/usr/libexec/sshd-keygen-wrapper', 'org.python.python')
+      or client like '%tart-guest-agent');"
+  tart exec "$BASE" sudo -n tccutil reset Accessibility >/dev/null
+  tart exec "$BASE" sudo -n tccutil reset ListenEvent >/dev/null
+  show "$BASE"
+  echo "In the VM, macOS asks whether the guest agent may control \"System Events\": click Allow."
+  set_dark false
+  tart exec "$VM" screencapture -x /tmp/check.png
+  (($(tart exec "$VM" stat -f %z /tmp/check.png) > 100000)) ||
+    fail "a test capture in the VM came back empty: grant Screen Recording to tart-guest-agent there and rerun with --reset-base"
+  shutdown "$BASE"
+  trap 'rm -rf "$LOGS"' EXIT
+  VM="keylayers-screenshots"
+  echo "$BASE is ready."
+fi
+
+exists "$VM" && fail "$VM already exists (a run still going?). Delete it with: tart stop $VM; tart delete $VM"
+cleanup() {
+  shutdown "$VM"
+  tart delete "$VM" >/dev/null 2>&1 || true
+  rm -rf "$LOGS"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+say "Starting $VM (a clone of $BASE)"
+tart clone "$BASE" "$VM"
+# Older bases resize with the window; this one shouldn't.
+tart set "$VM" --display 2880x1800 --no-display-refit
+boot "$VM"
+fix_display "$VM"
+
+say "Installing the latest release in the VM"
+tart exec "$VM" curl -fsSL -o /tmp/KeyLayers.zip "$DOWNLOAD"
+# A browser download is quarantined; curl's isn't. Without it macOS shows no first-open dialog.
+tart exec "$VM" xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;" /tmp/KeyLayers.zip
+# ditto passes the zip's quarantine on to the app, as Archive Utility does.
+tart exec "$VM" ditto -x -k /tmp/KeyLayers.zip /Applications
+tart exec "$VM" xattr -p com.apple.quarantine /Applications/KeyLayers.app >/dev/null ||
+  fail "the app in the VM is not quarantined; the first-open dialog won't show"
+set_dark false
+mkdir -p "$OUT"
+show "$VM"
+
+# name | window owner ("*" = frontmost app, "^App" = App's windows in front of its main one) | what to show
+# | optional: how to reopen the window for the dark version
+shots=(
+  "gatekeeper-open|*|In Finder, open Applications and double-click KeyLayers. Leave the dialog that asks whether to open it on screen."
+  "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). Login Items & Extensions opens: scroll so the KeyLayers entry (\"2 items\") shows under App Background Activity, its switch still off."
+  "accessibility|System Settings|Turn on the KeyLayers switch (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper, the only entry."
+  "input-monitoring-add|System Settings|In System Settings, open Privacy & Security, then Input Monitoring. Show the list with its + button."
+  "input-monitoring-goto|^System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open.|Press Escape twice, then click + again, press Command-Shift-G and paste the path."
+  "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
+)
+
+only="${usage_only:-}"
+if [[ -n "$only" ]]; then
+  printf '%s\n' "${shots[@]}" | cut -d'|' -f1 | grep -qx "$only" || fail "no shot named $only"
+fi
+say "Shots: ${#shots[@]}. For each, set up the VM as described, then press Enter here."
+for shot in "${shots[@]}"; do
+  IFS='|' read -r name owner instruction reopen <<<"$shot"
+  [[ "$name" == input-monitoring-goto ]] && printf '%s' "$DAEMON" | pbcopy
+  say "$name"
+  echo "$instruction"
+  if [[ -n "$only" && "$name" != "$only" ]]; then
+    read -r -p "Not captured this time (--only $only). Press Enter when done… "
+    continue
+  fi
+  read -r -p "Press Enter to capture… "
+  capture "$name" "$owner" "$reopen"
+  [[ "$name" == "$only" ]] && break
+done
+
+say "Done: ${only:-${#shots[@]} shots} in $OUT. $VM is deleted now; $BASE stays for the next run."

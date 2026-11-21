@@ -4,6 +4,9 @@ swiftlint = "0.65.1"
 swiftformat = "0.64.6"
 fnox = "1.35.3"
 git-lfs = "3.8.0"
+# The website (docs/, VitePress): Node and its package manager.
+node = "26.13.1"
+aube = "2.10.1"
 
 # Tasks live in mise/tasks, one executable file each (mise/tasks/release/archive is release:archive).
 # Secrets come from fnox (fnox.toml): with `fnox activate` in the shell they are in the environment

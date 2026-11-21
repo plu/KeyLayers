@@ -1,0 +1,76 @@
+/* <Shot>: show the screenshot that matches the site's appearance. */
+.shot {
+  display: block;
+  margin: 20px 0;
+}
+/* width: 100% with a fit-content frame: as wide as the image, never wider than the page. */
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.shot-none {
+  width: fit-content;
+  max-width: 100%;
+}
+.dark-only {
+  display: none !important;
+}
+html.dark .light-only {
+  display: none !important;
+}
+html.dark .dark-only {
+  display: block !important;
+}
+
+/* Frames for the app screenshots (rendered without one by the snapshot tests). */
+:root {
+  --shot-window-bg: #ffffff;
+  --shot-titlebar-bg: #f3f3f3;
+  --shot-border: rgba(0, 0, 0, 0.16);
+  --shot-shadow: 0 10px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+html.dark {
+  --shot-window-bg: #1e1e1e;
+  --shot-titlebar-bg: #2a2a2a;
+  --shot-border: rgba(255, 255, 255, 0.14);
+  --shot-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.shot-window,
+.shot-panel {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--shot-border);
+  box-shadow: var(--shot-shadow);
+  background: var(--shot-window-bg);
+}
+.shot-window {
+  border-radius: 12px;
+}
+.shot-panel {
+  border-radius: 10px;
+}
+.shot-titlebar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  background: var(--shot-titlebar-bg);
+  border-bottom: 1px solid var(--shot-border);
+}
+.shot-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.shot-close {
+  background: #ff5f57;
+}
+.shot-minimize {
+  background: #febc2e;
+}
+.shot-zoom {
+  background: #28c840;
+}

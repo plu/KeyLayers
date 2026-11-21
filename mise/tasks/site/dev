@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Serve the website with live reload (http://localhost:5173/KeyLayers/)"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+aube install
+aube exec vitepress dev docs

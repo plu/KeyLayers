@@ -29,7 +29,8 @@ which `release:archive` installs when set. After regenerating the profile in the
 Publishing: push a version tag (`git tag v1.2.3 && git push origin v1.2.3`). The workflow runs lint and the unit
 tests on the tagged commit, then builds 1.2.3 (build number = its run number), signs the zip for Sparkle with
 `SPARKLE_ED_PRIVATE_KEY`, and creates the GitHub Release with `KeyLayers.zip` and `appcast.xml`. Installed copies find it through
-`releases/latest/download/appcast.xml`. Dispatched runs never publish and build 0.0.0 without an updater.
+`releases/latest/download/appcast.xml`. Then it starts the Site workflow, so the website's Download button
+shows the new version. Dispatched runs never publish and build 0.0.0 without an updater.
 A tag must be a higher version than the latest release (`release:check-tag`): a lower one would become "latest"
 and be offered to every newer install as an update. A release created by hand without `appcast.xml` breaks the feed.
 
@@ -48,8 +49,9 @@ and be offered to every newer install as an update. A release created by hand wi
 
 KeyLayers needs three approvals, none of which is requested by a system prompt for the daemon.
 
-- [ ] Login Items: System Settings > General > Login Items & Extensions lists KeyLayers twice, for the helper
-  and for the input service (the root daemon). Approve both (the configurator offers to register them).
+- [ ] Login Items: System Settings > General > Login Items & Extensions lists KeyLayers once under App
+  Background Activity, as "2 items" (the helper and the input service, the root daemon); its one switch
+  approves both (the configurator offers to register them).
 - [ ] Accessibility: add/enable KeyLayersHelper (needed to post the remapped events).
 - [ ] Input Monitoring for the daemon: System Settings > Privacy & Security > Input Monitoring > "+", then pick
   `KeyLayers.app/Contents/Library/HelperTools/KeyLayersInputDaemon` (inside the app bundle; press Cmd+Shift+G in the

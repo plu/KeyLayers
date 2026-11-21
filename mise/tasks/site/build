@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Build the website (docs/ with VitePress) into docs/.vitepress/dist and check it"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# Frozen: the build uses exactly the committed aube-lock.yaml (site:dev updates it).
+aube install --frozen-lockfile
+aube exec vitepress build docs
+scripts/site-check.sh

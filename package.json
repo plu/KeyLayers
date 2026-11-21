@@ -1,0 +1,9 @@
+{
+  "name": "keylayers-site",
+  "private": true,
+  "type": "module",
+  "description": "The KeyLayers website, built from docs/ with VitePress (mise run site:dev)",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

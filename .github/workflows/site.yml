@@ -1,0 +1,86 @@
+name: Site
+
+# The website (docs/, VitePress; mise run site:build), served by GitHub Pages at
+# https://johannes.plunien.com/KeyLayers/ (the plu.github.io user site's domain). Pull requests that touch
+# it only build it, which catches dead links and missing screenshots; main deploys it.
+on:
+  pull_request:
+    paths: &site
+      - docs/**
+      - package.json
+      - aube-lock.yaml
+      - mise.toml
+      - mise/tasks/site/**
+      - scripts/site-check.sh
+      - .github/workflows/site.yml
+  push:
+    branches: [main]
+    paths: *site
+  workflow_dispatch:
+
+# One deployment at a time, and never cancelled halfway.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  build:
+    name: Build
+    # mise installs every tool mise.toml pins, the Xcode tools among them, so this runs on macOS like
+    # the Lint workflow (no Xcode selection needed: the site only uses Node and aube).
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Installs the tools mise.toml pins.
+      - name: mise
+        uses: jdx/mise-action@v5
+
+      # With git-lfs from mise.toml. Only the site's images, not the snapshot references: an LFS pointer
+      # instead of a PNG would ship a broken image (site:build's check catches that too).
+      - name: Screenshots from Git LFS
+        run: git lfs pull --include "docs/public/**"
+
+      - name: Build
+        run: mise run site:build
+        env:
+          # The landing page reads the latest release's version from the GitHub API.
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
+
+      - name: Upload
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
