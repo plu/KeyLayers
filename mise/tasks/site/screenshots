@@ -82,8 +82,11 @@ front_window() {
     const owner = '$1';
     const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
       $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
-    // The file picker may be drawn by AppKit's panel service rather than the app itself.
-    const ownedBy = w => w.kCGWindowOwnerName === owner || /Open and Save Panel/i.test(w.kCGWindowOwnerName);
+    // '~text': every app whose name contains text (the file picker is drawn by AppKit's panel service);
+    // the file picker also counts as part of the app that opened it.
+    const ownedBy = owner.startsWith('~')
+      ? w => w.kCGWindowOwnerName.toLowerCase().includes(owner.slice(1).toLowerCase())
+      : w => w.kCGWindowOwnerName === owner || /Open and Save Panel/i.test(w.kCGWindowOwnerName);
     const candidates = windows.filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
       ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
       : ownedBy(w)));
@@ -93,14 +96,27 @@ front_window() {
     bounds.length === 0 ? '' : [x, y, right - x, bottom - y].join(',')"
 }
 
-# Captures the window in light, then dark, then returns to light for the next step.
+window_owners() {
+  tart exec "$VM" osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    [...new Set(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
+      $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)))
+      .filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8).map(w => w.kCGWindowOwnerName))].join(', ')"
+}
+
+# Captures the window in light, then dark, then returns to light for the next step. With "reopen", the
+# window keeps the appearance it opened with (the file picker), so you reopen it in dark in between.
 capture() {
-  local name="$1" owner="$2" rect appearance file
+  local name="$1" owner="$2" reopen="${3:-}" rect appearance file
   for appearance in light dark; do
     set_dark "$([[ $appearance == dark ]] && echo true || echo false)"
+    if [[ $appearance == dark && -n "$reopen" ]]; then
+      echo "The VM is dark now. $reopen"
+      read -r -p "Press Enter to capture the dark version… "
+    fi
     sleep 2
     rect="$(front_window "$owner")"
-    [[ -n "$rect" ]] || fail "no window of ${owner/\*/any app} on screen for $name"
+    [[ -n "$rect" ]] || fail "no window of ${owner/\*/any app} on screen for $name; on screen: $(window_owners)"
     file="$OUT/$name.$appearance.png"
     tart exec "$VM" screencapture -x -R"$rect" /tmp/shot.png
     tart exec "$VM" cat /tmp/shot.png >"$file"
@@ -174,13 +190,14 @@ set_dark false
 mkdir -p "$OUT"
 show "$VM"
 
-# name | window owner ("*" = frontmost app) | what to show
+# name | window owner ("*" = frontmost app, "~text" = apps whose name contains text) | what to show
+# | optional: how to reopen the window for the dark version
 shots=(
   "gatekeeper-open|*|In Finder, open Applications and double-click KeyLayers. Leave the dialog that asks whether to open it on screen."
   "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). Login Items & Extensions opens: scroll so the KeyLayers entry (\"2 items\") shows under App Background Activity, its switch still off."
   "accessibility|System Settings|Turn on the KeyLayers switch (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper, the only entry."
   "input-monitoring-add|System Settings|In System Settings, open Privacy & Security, then Input Monitoring. Show the list with its + button."
-  "input-monitoring-goto|System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open."
+  "input-monitoring-goto|~Open and Save Panel|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open.|Press Escape twice, then click + again, press Command-Shift-G and paste the path."
   "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
 )
 
@@ -190,7 +207,7 @@ if [[ -n "$only" ]]; then
 fi
 say "Shots: ${#shots[@]}. For each, set up the VM as described, then press Enter here."
 for shot in "${shots[@]}"; do
-  IFS='|' read -r name owner instruction <<<"$shot"
+  IFS='|' read -r name owner instruction reopen <<<"$shot"
   [[ "$name" == input-monitoring-goto ]] && printf '%s' "$DAEMON" | pbcopy
   say "$name"
   echo "$instruction"
@@ -199,7 +216,7 @@ for shot in "${shots[@]}"; do
     continue
   fi
   read -r -p "Press Enter to capture… "
-  capture "$name" "$owner"
+  capture "$name" "$owner" "$reopen"
   [[ "$name" == "$only" ]] && break
 done
 
