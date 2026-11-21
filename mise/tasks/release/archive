@@ -31,13 +31,13 @@ fail() { echo "error: $*" >&2; exit 1; }
 # Virtual Device entitlement there is no profile, and the archive would fail late and obscurely.
 PROFILE_ERROR="No Developer ID provisioning profile for ${HELPER_BUNDLE_ID} — it requires Apple's approval of the HID Virtual Device entitlement
   Create a Developer ID provisioning profile for ${HELPER_BUNDLE_ID} in the developer portal,
-  install it (double-click the .provisioningprofile), then store its name with:
+  install it (double-click the .provisionprofile), then store its name with:
     fnox set HELPER_PROVISIONING_PROFILE"
 [ -n "${HELPER_PROVISIONING_PROFILE:-}" ] || fail "${PROFILE_ERROR}"
 profile_found=0
 for dir in "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles" "${HOME}/Library/MobileDevice/Provisioning Profiles"; do
   [ -d "${dir}" ] || continue
-  for f in "${dir}"/*.provisioningprofile "${dir}"/*.mobileprovision; do
+  for f in "${dir}"/*.provisionprofile "${dir}"/*.provisioningprofile "${dir}"/*.mobileprovision; do
     [ -f "${f}" ] || continue
     name="$(security cms -D -i "${f}" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null || true)"
     if [ "${name}" = "${HELPER_PROVISIONING_PROFILE}" ]; then profile_found=1; break 2; fi
