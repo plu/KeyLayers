@@ -20,6 +20,12 @@ prints `accepted` and `source=Notarized Developer ID`.
 `release:notarize` and `release:package` re-run the earlier steps through their mise `depends` chain, so each
 run archives, notarizes and packages from scratch.
 
+On GitHub: Actions → Release → Run workflow runs the same `mise run release` on a hosted runner (`xcode-27`)
+and keeps `KeyLayers.zip` as the run's artifact. It needs the repository secret `FNOX_AGE_KEY` (the private
+key of the `ci` age recipient in `fnox.toml`). A fresh runner has no provisioning profile, so the helper's profile
+is also stored in fnox: `fnox set HELPER_PROVISIONING_PROFILE_DATA "$(base64 -i <file>.provisionprofile)"`,
+which `release:archive` installs when set. After regenerating the profile in the portal, update both.
+
 ## Core behaviour
 
 1. [ ] Install (unzip, move to /Applications) and launch. Complete "Permissions setup" below.

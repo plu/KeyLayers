@@ -1,0 +1,55 @@
+name: Release
+
+# Builds the notarized KeyLayers.zip (mise run release: archive, notarize, package) and keeps it as
+# this run's artifact. Manual for now; publishing a GitHub Release comes later.
+on:
+  workflow_dispatch:
+
+# One release at a time, and never cancelled: killing a run halfway through notarization is worse
+# than waiting for it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  release:
+    name: Release
+    # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
+    runs-on: xcode-27
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Tuist.swift pins exactly Xcode 27.2; the image defaults to 27.1.
+      - name: Select Xcode 27.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app
+          xcodebuild -version
+
+      - name: mise
+        uses: jdx/mise-action@v5
+
+      # Every secret comes from fnox.toml, encrypted for the ci age recipient; FNOX_AGE_KEY is its
+      # private key. release:archive installs the helper's provisioning profile from fnox and
+      # imports the Developer ID certificate into a throwaway keychain.
+      - name: Archive, notarize and package
+        run: fnox exec -- mise run release
+        env:
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+
+      # Uploaded as is (no second zip around it), so the download is KeyLayers.zip itself.
+      - name: Upload KeyLayers.zip
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/release/KeyLayers.zip
+          archive: false
+          if-no-files-found: error
