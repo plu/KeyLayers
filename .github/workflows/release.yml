@@ -1,8 +1,11 @@
 name: Release
 
 # Builds the notarized KeyLayers.zip (mise run release: archive, notarize, package) and keeps it as
-# this run's artifact. Manual for now; publishing a GitHub Release comes later.
+# this run's artifact. A pushed version tag (v1.2.3) also publishes it: a GitHub Release with the
+# zip and the signed Sparkle appcast, which installed copies check for updates.
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 # One release at a time, and never cancelled: killing a run halfway through notarization is worse
@@ -12,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 defaults:
   run:
@@ -26,6 +29,24 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Before anything slow: a tag that isn't a version fails here. Every build gets this run's
+      # number as its build number (what Sparkle compares). Only tag builds get a version and a
+      # Sparkle feed; a dispatched build is 0.0.0 and never updates itself.
+      - name: Version
+        run: |
+          {
+            echo "TUIST_BUILD_NUMBER=${GITHUB_RUN_NUMBER}"
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::tag ${GITHUB_REF_NAME} is not a version tag like v1.2.3" >&2
+                exit 1
+              fi
+              echo "RELEASE_TAG=${GITHUB_REF_NAME}"
+              echo "TUIST_MARKETING_VERSION=${GITHUB_REF_NAME#v}"
+              echo "TUIST_SPARKLE_FEED_URL=https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
+            fi
+          } >> "${GITHUB_ENV}"
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -46,10 +67,26 @@ jobs:
         env:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
 
-      # Uploaded as is (no second zip around it), so the download is KeyLayers.zip itself.
+      # Uploaded as is (no second zip around it), so the download is KeyLayers.zip itself. Before
+      # publishing, so a failed publish still leaves the build.
       - name: Upload KeyLayers.zip
         uses: actions/upload-artifact@v7
         with:
           path: build/release/KeyLayers.zip
           archive: false
           if-no-files-found: error
+
+      - name: Appcast
+        if: github.ref_type == 'tag'
+        run: fnox exec -- mise run release:appcast
+        env:
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+
+      # Marked latest, so the feed URL (releases/latest/download/appcast.xml) serves this appcast.
+      - name: Publish the GitHub Release
+        if: github.ref_type == 'tag'
+        run: |
+          gh release create "${RELEASE_TAG}" build/release/KeyLayers.zip build/release/appcast.xml \
+            --title "KeyLayers ${TUIST_MARKETING_VERSION}" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
