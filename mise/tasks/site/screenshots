@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Capture the System Settings screenshots for the website in a throwaway tart VM (guided)"
 #USAGE flag "--reset-base" help="Delete and recreate the prepared base VM (e.g. after a new macOS image)"
+#USAGE flag "--only <name>" help="Capture only this shot (e.g. input-monitoring-goto); you still walk through the steps before it"
 set -euo pipefail
 
 # The setup guide shows System Settings as a fresh install sees it, so the shots come from a VM that
@@ -70,19 +71,22 @@ set_dark() {
   tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
 }
 
-# "x,y,w,h" (points) of the frontmost window of an app, or of the frontmost window of any app ("*")
+# "x,y,w,h" (points) of the largest window of an app, or of the frontmost window of any app ("*")
 # other than Terminal and Finder. Layers 0 to 8: normal windows up to modal panels (the first-open
-# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. Anything on top of the
-# window (a sheet, the file picker) is captured with it.
+# dialog is CoreServicesUIAgent's, at 8); the Dock and the menu bar are above. The largest, because
+# the file picker's "Go to" field is a small window of its own; anything on top of the main window
+# (a sheet, the file picker, that field) is captured with it.
 front_window() {
   tart exec "$VM" osascript -l JavaScript -e "
     ObjC.import('CoreGraphics');
     const owner = '$1';
     const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
       $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
-    const w = windows.find(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
+    const candidates = windows.filter(w => w.kCGWindowLayer >= 0 && w.kCGWindowLayer <= 8 && (owner === '*'
       ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
       : w.kCGWindowOwnerName === owner));
+    const area = w => w.kCGWindowBounds.Width * w.kCGWindowBounds.Height;
+    const w = owner === '*' ? candidates[0] : candidates.sort((a, b) => area(b) - area(a))[0];
     w ? [w.kCGWindowBounds.X, w.kCGWindowBounds.Y, w.kCGWindowBounds.Width, w.kCGWindowBounds.Height].join(',') : ''"
 }
 
@@ -117,8 +121,14 @@ if ! exists "$BASE"; then
   boot "$BASE"
   VM="$BASE"
   fix_display "$BASE"
-  # The image allows its own tools Accessibility (osascript, sshd-keygen-wrapper, tart-guest-agent); a
-  # fresh Mac lists nothing there, so neither do the shots. Screen Recording and Automation stay.
+  # The image lets its own tools post events (osascript, sshd-keygen-wrapper, tart-guest-agent, Python),
+  # and Tahoe lists those under Accessibility; a fresh Mac lists nothing there, so neither do the shots.
+  # Only their rows go: Screen Sharing's agent needs the permission for your mouse and keyboard, and
+  # Screen Recording and Automation stay. (SIP is off in the image, so root can edit the database.)
+  tart exec "$BASE" sudo -n sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+    "delete from access where service = 'kTCCServicePostEvent' and (client in
+      ('/usr/bin/osascript', '/usr/libexec/sshd-keygen-wrapper', 'org.python.python')
+      or client like '%tart-guest-agent');"
   tart exec "$BASE" sudo -n tccutil reset Accessibility >/dev/null
   tart exec "$BASE" sudo -n tccutil reset ListenEvent >/dev/null
   show "$BASE"
@@ -171,14 +181,23 @@ shots=(
   "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
 )
 
+only="${usage_only:-}"
+if [[ -n "$only" ]]; then
+  printf '%s\n' "${shots[@]}" | cut -d'|' -f1 | grep -qx "$only" || fail "no shot named $only"
+fi
 say "Shots: ${#shots[@]}. For each, set up the VM as described, then press Enter here."
 for shot in "${shots[@]}"; do
   IFS='|' read -r name owner instruction <<<"$shot"
   [[ "$name" == input-monitoring-goto ]] && printf '%s' "$DAEMON" | pbcopy
   say "$name"
   echo "$instruction"
+  if [[ -n "$only" && "$name" != "$only" ]]; then
+    read -r -p "Not captured this time (--only $only). Press Enter when done… "
+    continue
+  fi
   read -r -p "Press Enter to capture… "
   capture "$name" "$owner"
+  [[ "$name" == "$only" ]] && break
 done
 
-say "Done: ${#shots[@]} shots in $OUT. $VM is deleted now; $BASE stays for the next run."
+say "Done: ${only:-${#shots[@]} shots} in $OUT. $VM is deleted now; $BASE stays for the next run."
