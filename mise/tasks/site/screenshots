@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+#MISE description="Capture the System Settings screenshots for the website in a throwaway tart VM (guided)"
+#USAGE flag "--reset-base" help="Delete and recreate the prepared base VM (e.g. after a new macOS image)"
+set -euo pipefail
+
+# The setup guide shows System Settings as a fresh install sees it, so the shots come from a VM that
+# never had KeyLayers: a clone of a prepared base, deleted afterwards. The base is cloned once from the
+# vanilla Tahoe image and only holds the one approval the capture needs (Automation of System Events,
+# to switch between light and dark). Screen Recording is already granted to the image's guest agent.
+#
+# You click through the setup in the VM window; the task tells you what to show, and on Enter captures
+# the window in light and dark into docs/public/screenshots/system-settings/<name>.<light|dark>.png.
+cd "$MISE_PROJECT_ROOT"
+
+IMAGE="ghcr.io/cirruslabs/macos-tahoe-xcode:27"
+BASE="keylayers-screenshots-base"
+VM="keylayers-screenshots"
+OUT="docs/public/screenshots/system-settings"
+DOWNLOAD="https://github.com/plu/KeyLayers/releases/latest/download/KeyLayers.zip"
+DAEMON="/Applications/KeyLayers.app/Contents/Library/HelperTools/KeyLayersInputDaemon"
+
+LOGS="$(mktemp -d -t keylayers-screenshots)"
+
+fail() { echo "error: $*" >&2; exit 1; }
+say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
+exists() { tart list --quiet 2>/dev/null | grep -qx "$1"; }
+
+# Starts a VM with its window and waits for the guest agent.
+boot() {
+  tart run "$1" >"$LOGS/$1.log" 2>&1 &
+  for _ in $(seq 1 90); do
+    tart exec "$1" true >/dev/null 2>&1 && return 0
+    sleep 2
+  done
+  fail "$1 did not start (see $LOGS/$1.log)"
+}
+
+shutdown() { tart stop "$1" >/dev/null 2>&1 || true; }
+
+set_dark() {
+  tart exec "$VM" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1" >/dev/null
+}
+
+# "x,y,w,h" (points) of the frontmost window of an app, or of the frontmost window of any app ("*")
+# other than Terminal and Finder. Anything on top of it (a sheet, the file picker) is captured with it.
+front_window() {
+  tart exec "$VM" osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    const owner = '$1';
+    const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(
+      $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0)));
+    const w = windows.find(w => w.kCGWindowLayer === 0 && (owner === '*'
+      ? !['Terminal', 'Finder'].includes(w.kCGWindowOwnerName)
+      : w.kCGWindowOwnerName === owner));
+    w ? [w.kCGWindowBounds.X, w.kCGWindowBounds.Y, w.kCGWindowBounds.Width, w.kCGWindowBounds.Height].join(',') : ''"
+}
+
+# Captures the window in light, then dark, then returns to light for the next step.
+capture() {
+  local name="$1" owner="$2" rect appearance file
+  for appearance in light dark; do
+    set_dark "$([[ $appearance == dark ]] && echo true || echo false)"
+    sleep 2
+    rect="$(front_window "$owner")"
+    [[ -n "$rect" ]] || fail "no window of ${owner/\*/any app} on screen for $name"
+    file="$OUT/$name.$appearance.png"
+    tart exec "$VM" screencapture -x -R"$rect" /tmp/shot.png
+    tart exec "$VM" cat /tmp/shot.png >"$file"
+    (($(wc -c <"$file") > 10000)) || fail "$file is empty (is Screen Recording still granted in the VM?)"
+    echo "  saved $file"
+  done
+  set_dark false
+}
+
+if [[ "${usage_reset_base:-false}" == "true" ]] && exists "$BASE"; then
+  say "Deleting $BASE"
+  tart delete "$BASE"
+fi
+
+if ! exists "$BASE"; then
+  say "Preparing $BASE from $IMAGE (once)"
+  tart clone "$IMAGE" "$BASE"
+  tart set "$BASE" --display 1920x1200
+  trap 'shutdown "$BASE"; tart delete "$BASE" >/dev/null 2>&1 || true; rm -rf "$LOGS"' EXIT
+  trap 'exit 130' INT TERM
+  boot "$BASE"
+  VM="$BASE"
+  echo "In the VM window, macOS asks whether the guest agent may control \"System Events\": click Allow."
+  set_dark false
+  tart exec "$VM" screencapture -x /tmp/check.png
+  (($(tart exec "$VM" stat -f %z /tmp/check.png) > 100000)) ||
+    fail "a test capture in the VM came back empty: grant Screen Recording to tart-guest-agent there and rerun with --reset-base"
+  shutdown "$BASE"
+  trap 'rm -rf "$LOGS"' EXIT
+  VM="keylayers-screenshots"
+  echo "$BASE is ready."
+fi
+
+exists "$VM" && fail "$VM already exists (a run still going?). Delete it with: tart stop $VM; tart delete $VM"
+cleanup() {
+  shutdown "$VM"
+  tart delete "$VM" >/dev/null 2>&1 || true
+  rm -rf "$LOGS"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+say "Starting $VM (a clone of $BASE)"
+tart clone "$BASE" "$VM"
+boot "$VM"
+
+say "Installing the latest release in the VM"
+tart exec "$VM" curl -fsSL -o /tmp/KeyLayers.zip "$DOWNLOAD"
+# A browser download is quarantined; curl's isn't. Without it macOS shows no first-open dialog.
+tart exec "$VM" xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;" /tmp/KeyLayers.zip
+# ditto passes the zip's quarantine on to the app, as Archive Utility does.
+tart exec "$VM" ditto -x -k /tmp/KeyLayers.zip /Applications
+tart exec "$VM" xattr -p com.apple.quarantine /Applications/KeyLayers.app >/dev/null ||
+  fail "the app in the VM is not quarantined; the first-open dialog won't show"
+set_dark false
+mkdir -p "$OUT"
+
+# name | window owner ("*" = frontmost app) | what to show
+shots=(
+  "gatekeeper-open|*|In Finder, open Applications and double-click KeyLayers. Leave the dialog that asks whether to open it on screen."
+  "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). In Login Items & Extensions, scroll so both KeyLayers entries show, switches still off."
+  "accessibility|System Settings|Turn on both KeyLayers entries (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper."
+  "input-monitoring-add|System Settings|In KeyLayers, click Open Input Monitoring…. Show the list with its + button."
+  "input-monitoring-goto|System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard. Leave the path field open."
+  "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
+)
+
+say "Shots: ${#shots[@]}. For each, set up the VM as described, then press Enter here."
+for shot in "${shots[@]}"; do
+  IFS='|' read -r name owner instruction <<<"$shot"
+  [[ "$name" == input-monitoring-goto ]] && printf '%s' "$DAEMON" | pbcopy
+  say "$name"
+  echo "$instruction"
+  read -r -p "Press Enter to capture… "
+  capture "$name" "$owner"
+done
+
+say "Done: ${#shots[@]} shots in $OUT. $VM is deleted now; $BASE stays for the next run."
