@@ -33,30 +33,27 @@ defaults:
 jobs:
   build:
     name: Build
-    # No Xcode needed: only Node and aube.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # mise installs every tool mise.toml pins, the Xcode tools among them, so this runs on macOS like
+    # the Lint workflow (no Xcode selection needed: the site only uses Node and aube).
+    runs-on: macos-26
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Only the site's images, not the snapshot references: an LFS pointer instead of a PNG would ship
-      # a broken image (site:build's check catches that too).
-      - name: Screenshots from Git LFS
-        run: git lfs pull --include "docs/public/**"
-
-      # Only the site's tools; mise.toml also pins the Xcode tools (Tuist, SwiftLint, SwiftFormat).
+      # Installs the tools mise.toml pins.
       - name: mise
         uses: jdx/mise-action@v5
-        with:
-          install_args: node aube
+
+      # With git-lfs from mise.toml. Only the site's images, not the snapshot references: an LFS pointer
+      # instead of a PNG would ship a broken image (site:build's check catches that too).
+      - name: Screenshots from Git LFS
+        run: git lfs pull --include "docs/public/**"
 
       - name: Build
         run: mise run site:build
         env:
-          # mise run would otherwise install every tool mise.toml pins before running the task.
-          MISE_TASK_RUN_AUTO_INSTALL: "false"
           # The landing page reads the latest release's version from the GitHub API.
           GITHUB_TOKEN: ${{ github.token }}
 

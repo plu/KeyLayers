@@ -21,3 +21,9 @@ formatting) and `mise run test:unit`. CI runs both on every pull request; see `d
 
 When you change the website (`docs/`, `package.json`, `mise/tasks/site/`), also run `mise run site:build`: it
 fails on dead links and on missing or broken screenshots, and CI runs it on those pull requests too.
+
+## Tools
+
+Every tool comes from `mise.toml`. In GitHub Actions, `jdx/mise-action` installs all of them: never pass
+`install_args` to install a subset, and don't install tools any other way. A job whose runner can't install
+every pinned tool runs on macOS instead.
