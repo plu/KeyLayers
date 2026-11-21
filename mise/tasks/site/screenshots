@@ -8,8 +8,10 @@ set -euo pipefail
 # vanilla Tahoe image and only holds the one approval the capture needs (Automation of System Events,
 # to switch between light and dark). Screen Recording is already granted to the image's guest agent.
 #
-# You click through the setup in the VM window; the task tells you what to show, and on Enter captures
-# the window in light and dark into docs/public/screenshots/system-settings/<name>.<light|dark>.png.
+# You click through the setup in the VM through Screen Sharing (tart's own window can't be scaled while
+# the guest's screen stays at 2x; the Screen Sharing window can); the task tells you what to show, and
+# on Enter captures the window in light and dark into
+# docs/public/screenshots/system-settings/<name>.<light|dark>.png.
 cd "$MISE_PROJECT_ROOT"
 
 IMAGE="ghcr.io/cirruslabs/macos-tahoe-xcode:27"
@@ -25,9 +27,9 @@ fail() { echo "error: $*" >&2; exit 1; }
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 exists() { tart list --quiet 2>/dev/null | grep -qx "$1"; }
 
-# Starts a VM with its window and waits for the guest agent.
+# Starts a VM without tart's window and waits for the guest agent.
 boot() {
-  tart run "$1" >"$LOGS/$1.log" 2>&1 &
+  tart run "$1" --no-graphics >"$LOGS/$1.log" 2>&1 &
   for _ in $(seq 1 90); do
     tart exec "$1" true >/dev/null 2>&1 && return 0
     sleep 2
@@ -36,6 +38,13 @@ boot() {
 }
 
 shutdown() { tart stop "$1" >/dev/null 2>&1 || true; }
+
+# Opens the VM in Screen Sharing (on in the image; user and password admin).
+show() {
+  open "vnc://admin:admin@$(tart ip "$1")"
+  echo "The VM opens in Screen Sharing (password: admin). Make the window as large as you like;"
+  echo "View > Turn Scaling On fits the VM's screen into it."
+}
 
 # The guest keeps its own resolution (1024x768 points in the image) whatever tart's display is, and
 # tart's refit changes it whenever the VM window is resized. Shots must be at 2x, so the guest is set to
@@ -108,7 +117,8 @@ if ! exists "$BASE"; then
   boot "$BASE"
   VM="$BASE"
   fix_display "$BASE"
-  echo "In the VM window, macOS asks whether the guest agent may control \"System Events\": click Allow."
+  show "$BASE"
+  echo "In the VM, macOS asks whether the guest agent may control \"System Events\": click Allow."
   set_dark false
   tart exec "$VM" screencapture -x /tmp/check.png
   (($(tart exec "$VM" stat -f %z /tmp/check.png) > 100000)) ||
@@ -145,6 +155,7 @@ tart exec "$VM" xattr -p com.apple.quarantine /Applications/KeyLayers.app >/dev/
   fail "the app in the VM is not quarantined; the first-open dialog won't show"
 set_dark false
 mkdir -p "$OUT"
+show "$VM"
 
 # name | window owner ("*" = frontmost app) | what to show
 shots=(
@@ -152,7 +163,7 @@ shots=(
   "login-items-approve|System Settings|Click Open. In KeyLayers, click the button in the status area (Enable Helper or Open Login Items…). In Login Items & Extensions, scroll so both KeyLayers entries show, switches still off."
   "accessibility|System Settings|Turn on both KeyLayers entries (password: admin). In KeyLayers, click Open System Settings… next to Accessibility and turn on KeyLayersHelper."
   "input-monitoring-add|System Settings|In KeyLayers, click Open Input Monitoring…. Show the list with its + button."
-  "input-monitoring-goto|System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard. Leave the path field open."
+  "input-monitoring-goto|System Settings|Click +, press Command-Shift-G and paste (Command-V) the path, already on the clipboard (Screen Sharing passes it on). Leave the path field open."
   "input-monitoring-enabled|System Settings|Press Return, click Open, and turn on KeyLayersInputDaemon (password: admin)."
 )
 
