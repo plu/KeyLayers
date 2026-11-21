@@ -26,9 +26,9 @@ key of the `ci` age recipient in `fnox.toml`). A fresh runner has no provisionin
 is also stored in fnox: `fnox set HELPER_PROVISIONING_PROFILE_DATA "$(base64 -i <file>.provisionprofile)"`,
 which `release:archive` installs when set. After regenerating the profile in the portal, update both.
 
-Publishing: push a version tag (`git tag v1.2.3 && git push origin v1.2.3`). The workflow builds 1.2.3
-(build number = its run number), signs the zip for Sparkle with `SPARKLE_ED_PRIVATE_KEY`, and creates the
-GitHub Release with `KeyLayers.zip` and `appcast.xml`. Installed copies find it through
+Publishing: push a version tag (`git tag v1.2.3 && git push origin v1.2.3`). The workflow runs lint and the unit
+tests on the tagged commit, then builds 1.2.3 (build number = its run number), signs the zip for Sparkle with
+`SPARKLE_ED_PRIVATE_KEY`, and creates the GitHub Release with `KeyLayers.zip` and `appcast.xml`. Installed copies find it through
 `releases/latest/download/appcast.xml`. Dispatched runs never publish and build 0.0.0 without an updater.
 A tag must be a higher version than the latest release (`release:check-tag`): a lower one would become "latest"
 and be offered to every newer install as an update. A release created by hand without `appcast.xml` breaks the feed.

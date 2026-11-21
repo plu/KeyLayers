@@ -3,14 +3,17 @@ name: Unit Tests
 # The UnitTests scheme (`mise run test:unit`). It builds only frameworks and test bundles, signed ad hoc
 # (no TUIST_TEAM_ID). The only secret is the Tuist token, for the binary cache of the external
 # packages; without it (a pull request from a fork) the tests still run, building everything from source.
+# The release workflow also calls it, so a release only builds after the tests pass.
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_call:
 
 # A newer push to the same PR or branch supersedes the running tests.
+# In a call from Release, github.workflow is "Release": its run never cancels (or is cancelled by) a push to main.
 concurrency:
-  group: unit-tests-${{ github.ref }}
+  group: unit-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

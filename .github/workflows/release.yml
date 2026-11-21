@@ -22,8 +22,19 @@ defaults:
     shell: /bin/bash --noprofile --norc -euo pipefail {0}
 
 jobs:
+  # The same checks as a pull request, on the commit being released: a tag on a commit whose tests
+  # fail (or that never went through main) publishes nothing. FNOX_AGE_KEY reaches the unit tests
+  # for the Tuist binary cache.
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  unit-tests:
+    uses: ./.github/workflows/unit-tests.yml
+    secrets: inherit
+
   release:
     name: Release
+    needs: [lint, unit-tests]
     # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
     runs-on: xcode-27
     timeout-minutes: 60
