@@ -259,6 +259,30 @@ The helper doesn't need Input Monitoring: it never reads input itself.
   virtual keyboards only for seized keyboards, so the two builds never mirror the same keyboard.
 - `mise run release` archives, exports with Developer ID, notarizes and packages
   `build/release/KeyLayers.zip` (see `docs/MANUAL-CHECKLIST.md`, "Release").
+- Version and build number come from `TUIST_MARKETING_VERSION` and `TUIST_BUILD_NUMBER` (app, helper
+  and daemon alike); without them a build is 0.0.0 (1). The release workflow
+  (`.github/workflows/release.yml`) sets them for a pushed `v1.2.3` tag: 1.2.3, with its run number as
+  the build number.
+
+## Updates
+
+- The configurator updates the whole app with Sparkle (`Apps/Configurator/Sources/Updater.swift`):
+  it checks the feed once a day while it runs, and on KeyLayers → Check for Updates….
+- Only tag builds update themselves. `SUFeedURL` and `SUPublicEDKey` come from
+  `TUIST_SPARKLE_FEED_URL` / `TUIST_SPARKLE_PUBLIC_KEY`, which only the release workflow's tag runs
+  set; the updater starts only when both are present (`UpdateFeed`). Dev builds, local releases,
+  dispatched workflow runs and forks never offer the latest release over themselves.
+- The feed is `https://github.com/<repo>/releases/latest/download/appcast.xml`. For a tag, the
+  workflow runs `release:appcast` (a one-item appcast whose zip is signed with the EdDSA key
+  `SPARKLE_ED_PRIVATE_KEY` from fnox) and creates the GitHub Release with the zip and the appcast.
+  Losing the private key means installed copies can never be updated again; it is kept in the
+  maintainer's login keychain (account `KeyLayers`) and in fnox.
+- Sparkle replaces the app bundle and relaunches the configurator. The helper notices on its 2 s poll
+  that its executable changed (`ExecutableIdentity`), stops like Quit (keys released, keyboards
+  handed back) and exits with status 75; its launchd job restarts only unsuccessful exits, so the new
+  helper starts while a Quit (status 0) stays stopped. The new helper's connection makes the daemon
+  replace itself (see "Self-replacement" above). Signing identity and bundle IDs don't change, so
+  Accessibility and Input Monitoring grants carry over.
 
 ## Safety
 
@@ -280,8 +304,8 @@ The helper doesn't need Input Monitoring: it never reads input itself.
 
 ## Known limitations and open items
 
-- **Distribution.** Release builds need Apple's approval of the HID Virtual Device entitlement for a
-  Developer ID provisioning profile. The approval is pending, so KeyLayers is built from source.
+- **Updates need a public repository.** Sparkle downloads the appcast and the zip without
+  credentials, so updates only work while the GitHub repository (and its releases) is public.
 - **External ISO and JIS keyboards** are untested. The ISO convention is verified on a German MacBook
   ISO built-in keyboard (country code 13); mixed ISO + ANSI setups are untested too.
 - **Caps Lock LED.** The system's LED output reports go to the virtual keyboard and are not forwarded
