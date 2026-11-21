@@ -1,6 +1,6 @@
 name: Lint
 
-# SwiftLint (strict) and SwiftFormat in lint mode (every file formatted), as `mise run lint` does locally.
+# SwiftLint (strict) and SwiftFormat in lint mode (every file formatted): the two halves of `mise run lint`.
 on:
   pull_request:
   push:
@@ -34,11 +34,10 @@ jobs:
       - name: mise
         uses: jdx/mise-action@v5
 
-      # The two halves of `mise run lint` as separate steps, so a failure says which one.
+      # Separate steps, so a failure says which check it was.
       - name: SwiftLint
-        run: mise exec -- swiftlint --strict --reporter github-actions-logging
+        run: mise run lint:swiftlint
 
-      # Fails when any file isn't formatted as `swiftformat .` would format it.
       - name: SwiftFormat
         if: ${{ !cancelled() }}
-        run: mise exec -- swiftformat --lint --reporter github-actions-log .
+        run: mise run lint:swiftformat
