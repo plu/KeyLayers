@@ -30,8 +30,14 @@ if [[ -d "$dist" ]]; then
   published="$(find "$dist" -path '*superpowers*' | head -1)"
   [[ -z "$published" ]] || fail "internal docs were published: ${published#"$root"/}"
 
-  unprefixed="$(grep -rlE '(src|href)="/screenshots/' "$dist" --include='*.html' || true)"
+  unprefixed="$(grep -rlE '(src|href)="/screenshots/|url\((&quot;|")?/screenshots/' "$dist" --include='*.html' || true)"
   [[ -z "$unprefixed" ]] || fail "screenshots referenced without the base path in: ${unprefixed//$root\//}"
+
+  # Every screenshot the built pages reference, however it got there (<Shot> in a page or a component,
+  # a FeatureCard's background), must be in the build.
+  while IFS= read -r path; do
+    [[ -f "$dist/${path#/KeyLayers/}" ]] || fail "a page references $path, which is not in the build"
+  done < <(grep -rhoE '/KeyLayers/screenshots/[A-Za-z0-9/_.-]+\.png' "$dist" --include='*.html' | sort -u)
 else
   fail "no build at ${dist#"$root"/} (run mise run site:build)"
 fi

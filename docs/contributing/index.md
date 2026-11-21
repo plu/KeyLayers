@@ -29,7 +29,7 @@ Setup (Xcode 27.2; `Tuist.swift` pins it):
 5. `mise run build`. It passes `-allowProvisioningUpdates`, so Xcode creates the development profile.
    After each Debug build the helper restarts and the input service replaces itself on the helper's
    next connection (a gap of about 2 s).
-6. Launch the app and grant the permissions as in the [setup guide](/guide/setup).
+6. Launch the app and grant the permissions as in the [setup guide](../guide/setup.md).
 7. `mise run test` runs the unit and snapshot tests.
 
 | Variable | Needed for | Default |
@@ -70,6 +70,6 @@ A pull request that touches the site builds it; a push to `main` deploys it to G
 
 ## More
 
-- [Architecture](/ARCHITECTURE): how the configurator, the helper and the input service work together.
-- [Testing](/TESTING): commands, UI-test mode, snapshot recording.
-- [Releasing & manual checks](/MANUAL-CHECKLIST): release steps and the checks on a real Mac.
+- [Architecture](../ARCHITECTURE.md): how the configurator, the helper and the input service work together.
+- [Testing](../TESTING.md): commands, UI-test mode, snapshot recording.
+- [Releasing & manual checks](../MANUAL-CHECKLIST.md): release steps and the checks on a real Mac.
