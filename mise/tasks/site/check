@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Check the website build: screenshots present (light and dark, real PNGs), base paths, nothing internal published"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+scripts/site-check.sh

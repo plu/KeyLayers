@@ -1,0 +1,18 @@
+/* <Shot>: show the screenshot that matches the site's appearance. */
+.shot {
+  display: block;
+  margin: 16px 0;
+}
+.shot img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.dark-only {
+  display: none;
+}
+html.dark .light-only {
+  display: none;
+}
+html.dark .dark-only {
+  display: inline;
+}
