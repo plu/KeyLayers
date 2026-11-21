@@ -36,6 +36,15 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_27.2.app
           xcodebuild -version
 
+      # The Swift packages `tuist install` resolves (sources and their git mirrors): about a minute to fetch
+      # on a fresh runner. Keyed by the resolved versions; a partial hit still saves most of the fetch.
+      - name: Cache Swift packages
+        uses: actions/cache@v6
+        with:
+          path: Tuist/.build
+          key: tuist-packages-${{ runner.os }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift') }}
+          restore-keys: tuist-packages-${{ runner.os }}-
+
       # Installs the tools mise.toml pins.
       - name: mise
         uses: jdx/mise-action@v5
