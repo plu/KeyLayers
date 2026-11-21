@@ -32,6 +32,11 @@ func identitySettings(prefix: String, displayNameSuffix: String) -> SettingsDict
   ]
 }
 
+/// Version and build number. The release workflow sets both for tag builds (the tag without its
+/// `v`, and its run number); everything else is a 0.0.0 build.
+let marketingVersion = Environment.marketingVersion.getString(default: "0.0.0")
+let buildNumber = Environment.buildNumber.getString(default: "1")
+
 var baseSettings: SettingsDictionary = [
   "SWIFT_VERSION": "6",
   "SWIFT_STRICT_CONCURRENCY": "complete",
@@ -39,6 +44,8 @@ var baseSettings: SettingsDictionary = [
   "MACOSX_DEPLOYMENT_TARGET": "26.0",
   "ENABLE_HARDENED_RUNTIME": "YES",
   "DEVELOPMENT_TEAM": .string(teamId),
+  "MARKETING_VERSION": .string(marketingVersion),
+  "CURRENT_PROJECT_VERSION": .string(buildNumber),
 ]
 if teamId.isEmpty {
   baseSettings["CODE_SIGN_IDENTITY"] = "-"
@@ -237,6 +244,8 @@ let project = Project(
       bundleId: "$(HELPER_BUNDLE_ID)",
       deploymentTargets: .macOS("26.0"),
       infoPlist: .extendingDefault(with: [
+        "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+        "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
         "CFBundleDisplayName": "$(HELPER_DISPLAY_NAME)",
         "LSUIElement": true,
         "AppGroupIdentifier": "$(APP_GROUP_ID)",
@@ -270,6 +279,8 @@ let project = Project(
       bundleId: "$(INPUT_DAEMON_LABEL)",
       deploymentTargets: .macOS("26.0"),
       infoPlist: .extendingDefault(with: [
+        "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+        "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
         "InputDaemonMachServiceName": "$(INPUT_DAEMON_MACH_SERVICE_NAME)",
         "HelperBundleIdentifier": "$(HELPER_BUNDLE_ID)",
         "SigningTeamIdentifier": "$(DEVELOPMENT_TEAM)",
@@ -294,6 +305,8 @@ let project = Project(
       bundleId: "$(CONFIGURATOR_BUNDLE_ID)",
       deploymentTargets: .macOS("26.0"),
       infoPlist: .extendingDefault(with: [
+        "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+        "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
         "CFBundleDisplayName": "$(CONFIGURATOR_DISPLAY_NAME)",
         "AppGroupIdentifier": "$(APP_GROUP_ID)",
         "HelperMachServiceName": "$(HELPER_MACH_SERVICE_NAME)",
