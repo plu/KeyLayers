@@ -11,6 +11,10 @@ Every check runs from the command line through mise; nothing needs Xcode's UI.
 | `mise run snapshot:record` | re-records every snapshot (see below) |
 | `mise run lint` | SwiftLint (strict) and SwiftFormat in lint mode (`lint:swiftlint` and `lint:swiftformat` run one) |
 
+On GitHub, every pull request and push to `main` runs `lint:swiftlint`, `lint:swiftformat` (workflow `Lint`)
+and `test:unit` (workflow `Unit Tests`). The unit tests need no secrets: without `TUIST_TEAM_ID` they build
+signed ad hoc.
+
 To run one test while iterating:
 
 ```sh
