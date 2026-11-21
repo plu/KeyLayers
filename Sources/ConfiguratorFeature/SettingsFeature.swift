@@ -89,15 +89,18 @@ public struct SettingsFeature: Sendable {
           } catch {
             await send(.registrationFailed(HelperRegistrationClient.describe(error)))
           }
-          // Turning it on also registers the input daemon. Turning it off leaves the daemon
-          // registered: without a helper connection it is idle.
+          // The input daemon follows the helper. Unregistering it on "off" makes off and on again
+          // replace a daemon registration launchd can no longer start (one made by another build
+          // of KeyLayers, whose signature it still expects) with one made by this app.
           let daemonStatus = registration.daemonStatus()
-          if isOn, daemonStatus == .notRegistered || daemonStatus == .notFound {
-            do {
+          do {
+            if isOn, daemonStatus == .notRegistered || daemonStatus == .notFound {
               try registration.registerDaemon()
-            } catch {
-              await send(.registrationFailed(HelperRegistrationClient.describeDaemon(error)))
+            } else if !isOn, daemonStatus != .notRegistered, daemonStatus != .notFound {
+              try registration.unregisterDaemon()
             }
+          } catch {
+            await send(.registrationFailed(HelperRegistrationClient.describeDaemon(error)))
           }
         }
 

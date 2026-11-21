@@ -116,7 +116,8 @@ tests and "everything works as expected".
    while remapping stops remapping within about 2 s and releases every held key; the menu shows the waiting
    state and the configurator shows the missing permission. Granting it again restarts remapping.
 19. [ ] Turning off "Launch the helper at login" also stops the running helper (it disappears from the menu bar
-   and Activity Monitor). Turning it on starts it again.
+   and Activity Monitor) and unregisters the input service (gone from Login Items). Turning it on starts the
+   helper again and registers the input service, which may need approval in Login Items again.
 
 ## Configurator and helper UI
 

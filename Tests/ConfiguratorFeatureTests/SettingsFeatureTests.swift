@@ -86,7 +86,7 @@ struct SettingsFeatureTests {
     }
   }
 
-  @Test func launchAtLoginOnRegistersDaemonAndOffLeavesIt() async throws {
+  @Test func launchAtLoginOnRegistersDaemon() async throws {
     let fakes = try Fakes()
     fakes.registrationStatus.setValue(.enabled)
     fakes.daemonStatus.setValue(.notFound)
@@ -96,11 +96,36 @@ struct SettingsFeatureTests {
     await store.finish()
     #expect(fakes.daemonCalls.value == ["register"])
     #expect(fakes.registrationCalls.value.isEmpty)
+  }
+
+  @Test func launchAtLoginOffAndOnRegistersHelperAndDaemonAfresh() async throws {
+    // Off and on again is the way to replace a registration launchd can no longer start (one
+    // made by another build of KeyLayers): both get unregistered, then registered from this app.
+    let fakes = try Fakes()
+    fakes.registrationStatus.setValue(.enabled)
+    fakes.daemonStatus.setValue(.enabled)
+    let store = makeStore(fakes)
 
     await store.send(.launchAtLoginChanged(false)) { $0.$launchAtLogin.withLock { $0 = false } }
     await store.finish()
-    #expect(fakes.daemonCalls.value == ["register"])
     #expect(fakes.registrationCalls.value == ["unregister"])
+    #expect(fakes.daemonCalls.value == ["unregister"])
+
+    await store.send(.launchAtLoginChanged(true)) { $0.$launchAtLogin.withLock { $0 = true } }
+    await store.finish()
+    #expect(fakes.registrationCalls.value == ["unregister", "register"])
+    #expect(fakes.daemonCalls.value == ["unregister", "register"])
+  }
+
+  @Test func launchAtLoginOffUnregistersDaemonAwaitingApproval() async throws {
+    let fakes = try Fakes()
+    fakes.registrationStatus.setValue(.enabled)
+    fakes.daemonStatus.setValue(.requiresApproval)
+    let store = makeStore(fakes)
+
+    await store.send(.launchAtLoginChanged(false)) { $0.$launchAtLogin.withLock { $0 = false } }
+    await store.finish()
+    #expect(fakes.daemonCalls.value == ["unregister"])
   }
 
   @Test func daemonRegistrationFailureInSettingsIsShown() async throws {
