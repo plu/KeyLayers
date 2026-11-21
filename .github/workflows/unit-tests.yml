@@ -1,0 +1,44 @@
+name: Unit Tests
+
+# The UnitTests scheme (`mise run test:unit`). It builds only frameworks and test bundles, so it needs no
+# secrets: without TUIST_TEAM_ID everything is signed ad hoc.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR or branch supersedes the running tests.
+concurrency:
+  group: unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
+    runs-on: xcode-27
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Tuist.swift pins exactly Xcode 27.2; the image defaults to 27.1.
+      - name: Select Xcode 27.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app
+          xcodebuild -version
+
+      # Installs the tools mise.toml pins.
+      - name: mise
+        uses: jdx/mise-action@v5
+
+      - name: Unit tests
+        run: mise run test:unit

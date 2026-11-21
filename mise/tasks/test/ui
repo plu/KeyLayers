@@ -3,5 +3,7 @@
 set -euo pipefail
 
 cd "$MISE_PROJECT_ROOT"
+# Resolves the Swift packages first: a fresh checkout (CI) has none yet.
+tuist install
 # The helper carries a restricted entitlement (HID virtual device): let Xcode fetch its profile.
 tuist test UITests -- -allowProvisioningUpdates
