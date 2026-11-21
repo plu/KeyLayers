@@ -50,6 +50,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Before building: a tag lower than the latest release would become "latest" and downgrade
+      # every newer install (see mise/tasks/release/check-tag). Only "no release yet" counts as a
+      # first release; any other API error stops here.
+      - name: Check the tag is newer than the latest release
+        if: github.ref_type == 'tag'
+        run: |
+          if latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>&1)"; then
+            LATEST_TAG="${latest}" bash mise/tasks/release/check-tag
+          elif [[ "${latest}" == *"Not Found"* ]]; then
+            LATEST_TAG="" bash mise/tasks/release/check-tag
+          else
+            echo "::error::could not read the latest release: ${latest}" >&2
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       # Tuist.swift pins exactly Xcode 27.2; the image defaults to 27.1.
       - name: Select Xcode 27.2
         run: |
