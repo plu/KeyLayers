@@ -9,7 +9,7 @@ Every check runs from the command line through mise; nothing needs Xcode's UI.
 | `mise run test:ui` | `UITests` scheme: `ConfiguratorUITests`, XCUITest flows through the configurator |
 | `mise run test` | all three, in that order |
 | `mise run snapshot:record` | re-records every snapshot (see below) |
-| `mise run lint` | SwiftLint (strict) and SwiftFormat in lint mode |
+| `mise run lint` | SwiftLint (strict) and SwiftFormat in lint mode (`lint:swiftlint` and `lint:swiftformat` run one) |
 
 To run one test while iterating:
 

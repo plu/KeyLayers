@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run SwiftLint (strict) and SwiftFormat in lint mode"
+set -euo pipefail
+
+# Both, even when the first fails, so one run reports everything.
+status=0
+mise run lint:swiftlint || status=1
+mise run lint:swiftformat || status=1
+exit "$status"

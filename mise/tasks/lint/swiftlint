@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Run SwiftLint in strict mode (warnings fail)"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# On GitHub Actions, report violations as annotations on the pull request.
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  swiftlint --strict --reporter github-actions-logging
+else
+  swiftlint --strict
+fi

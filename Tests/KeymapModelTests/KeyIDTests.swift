@@ -23,16 +23,26 @@ struct KeyIDTests {
   }
 
   @Test func mediaKeyUsages() {
-    let expected: [(KeyID, UInt16, UInt16)] = [
-      (.brightnessDown, 0x0C, 0x70), (.brightnessUp, 0x0C, 0x6F), (.missionControl, 0x0C, 0x29F),
-      (.spotlight, 0x0C, 0x221), (.dictation, 0x0C, 0xCF), (.doNotDisturb, 0x01, 0x9B),
-      (.previousTrack, 0x0C, 0xB6), (.playPause, 0x0C, 0xCD), (.nextTrack, 0x0C, 0xB5),
-      (.mute, 0x0C, 0xE2), (.volumeDown, 0x0C, 0xEA), (.volumeUp, 0x0C, 0xE9),
-    ]
-    for (key, page, usage) in expected {
-      #expect(key == KeyID(page: page, usage: usage))
+    struct MediaKey {
+      let key: KeyID
+      let page: UInt16
+      let usage: UInt16
+      init(_ key: KeyID, _ page: UInt16, _ usage: UInt16) {
+        self.key = key
+        self.page = page
+        self.usage = usage
+      }
     }
-    #expect(KeyID.mediaKeys == expected.map(\.0))
+    let expected: [MediaKey] = [
+      .init(.brightnessDown, 0x0C, 0x70), .init(.brightnessUp, 0x0C, 0x6F), .init(.missionControl, 0x0C, 0x29F),
+      .init(.spotlight, 0x0C, 0x221), .init(.dictation, 0x0C, 0xCF), .init(.doNotDisturb, 0x01, 0x9B),
+      .init(.previousTrack, 0x0C, 0xB6), .init(.playPause, 0x0C, 0xCD), .init(.nextTrack, 0x0C, 0xB5),
+      .init(.mute, 0x0C, 0xE2), .init(.volumeDown, 0x0C, 0xEA), .init(.volumeUp, 0x0C, 0xE9),
+    ]
+    for media in expected {
+      #expect(media.key == KeyID(page: media.page, usage: media.usage))
+    }
+    #expect(KeyID.mediaKeys == expected.map(\.key))
     #expect(Set(KeyID.allKnown).isSuperset(of: KeyID.mediaKeys))
   }
 

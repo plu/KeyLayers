@@ -44,7 +44,10 @@ public struct StatusFeature: Sendable {
     public var modifierKeysNote: String? {
       remappedKeyboards.isEmpty
         ? nil
-        : "macOS Modifier Keys settings don't apply while KeyLayers remaps a keyboard. Set those remaps in your keymap instead."
+        : """
+        macOS Modifier Keys settings don't apply while KeyLayers remaps a keyboard. \
+        Set those remaps in your keymap instead.
+        """
     }
 
     /// The running helper is waiting for the user to approve the input daemon in Login Items.

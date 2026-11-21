@@ -34,7 +34,8 @@ struct WireFormatTests {
   @Test func peerRequirementPinsHelperAndTeam() {
     #expect(
       PeerRequirement.helper(bundleID: "com.plunien.keylayers.helper", teamID: "ABCDE12345")
-        == #"identifier "com.plunien.keylayers.helper" and anchor apple generic and certificate leaf[subject.OU] = "ABCDE12345""#
+        == #"identifier "com.plunien.keylayers.helper" and anchor apple generic "#
+        + #"and certificate leaf[subject.OU] = "ABCDE12345""#
     )
   }
 }

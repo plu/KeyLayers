@@ -180,7 +180,9 @@ struct XPCRoundTripTests {
   @Test func serverRejectsPeersNotMatchingTheRequirement() async throws {
     let listener = NSXPCListener.anonymous()
     // The test runner isn't the configurator, so its connection is refused.
-    let server = HelperXPCServer(listener: listener, peerRequirement: #"identifier "com.plunien.keylayers.no-such-app""#)
+    let server = HelperXPCServer(
+      listener: listener, peerRequirement: #"identifier "com.plunien.keylayers.no-such-app""#
+    )
     server.resume()
     server.publish(.fixture(isPaused: false))
     let endpoint = listener.endpoint

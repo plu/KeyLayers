@@ -90,42 +90,56 @@ public struct VirtualKeyboardState: Equatable, Sendable {
     } else if event.key == .fn {
       fnDown = event.isDown
     } else if event.key.page == 0x07, (0x04 ... 0xDF).contains(event.key.usage) {
-      let usage = UInt8(event.key.usage)
-      // Physical/synthetic modifiers arrive as their own modifier-key events (here or on another
-      // virtual keyboard); only true remap extras are tied to this key.
-      let extras = event.modifiers.subtracting(explicit).subtracting(heldElsewhere)
-      if event.isDown {
-        if let index = held.firstIndex(where: { $0.usage == usage }) {
-          held[index].modifiers = extras
-        } else if held.count < Self.keySlots {
-          held.append((usage, extras))
-        } else {
-          dropped.insert(usage)
-        }
-      } else if dropped.remove(usage) == nil {
-        held.removeAll { $0.usage == usage }
-      }
+      applyKeyboardKey(event, heldElsewhere: heldElsewhere)
     } else if event.key.page == 0x0C, (1 ... 0x3FF).contains(event.key.usage) {
-      // Only the latest press is held; an up of a replaced key changes nothing.
-      let usage = event.key.usage
-      if event.isDown {
-        consumer = usage
-      } else if consumer == usage {
-        consumer = 0
-      }
-      return consumerReportIfChanged()
+      return applyConsumerKey(event)
     } else if event.key.page == 0x01, (1 ... 0xFF).contains(event.key.usage) {
-      let usage = UInt8(event.key.usage)
-      if event.isDown {
-        system = usage
-      } else if system == usage {
-        system = 0
-      }
-      return systemReportIfChanged()
+      return applySystemKey(event)
     } else {
       return nil
     }
     return emitIfChanged()
+  }
+
+  /// A non-modifier key on the keyboard page (0x07): held in one of the key slots, with its extras.
+  private mutating func applyKeyboardKey(_ event: OutputEvent, heldElsewhere: Modifiers) {
+    let usage = UInt8(event.key.usage)
+    // Physical/synthetic modifiers arrive as their own modifier-key events (here or on another
+    // virtual keyboard); only true remap extras are tied to this key.
+    let extras = event.modifiers.subtracting(explicit).subtracting(heldElsewhere)
+    if event.isDown {
+      if let index = held.firstIndex(where: { $0.usage == usage }) {
+        held[index].modifiers = extras
+      } else if held.count < Self.keySlots {
+        held.append((usage, extras))
+      } else {
+        dropped.insert(usage)
+      }
+    } else if dropped.remove(usage) == nil {
+      held.removeAll { $0.usage == usage }
+    }
+  }
+
+  /// A consumer page (0x0C) key. Only the latest press is held; an up of a replaced key changes nothing.
+  private mutating func applyConsumerKey(_ event: OutputEvent) -> Data? {
+    let usage = event.key.usage
+    if event.isDown {
+      consumer = usage
+    } else if consumer == usage {
+      consumer = 0
+    }
+    return consumerReportIfChanged()
+  }
+
+  /// A generic desktop (0x01) system control key, held like a consumer key.
+  private mutating func applySystemKey(_ event: OutputEvent) -> Data? {
+    let usage = UInt8(event.key.usage)
+    if event.isDown {
+      system = usage
+    } else if system == usage {
+      system = 0
+    }
+    return systemReportIfChanged()
   }
 
   /// Releases everything; returns the reports (keyboard, consumer, system) that changed.

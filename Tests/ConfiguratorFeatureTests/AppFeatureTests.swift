@@ -25,7 +25,10 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .enabled
+      $0.status.daemonRegistration = .enabled
+    }
     #expect(fakes.registrationCalls.value == ["register"])
     await task.cancel()
   }
@@ -36,7 +39,10 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .enabled
+      $0.status.daemonRegistration = .enabled
+    }
     #expect(fakes.daemonCalls.value == ["register"])
     #expect(fakes.registrationCalls.value == ["register"])
     await task.cancel()
@@ -50,7 +56,10 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .enabled
+      $0.status.daemonRegistration = .enabled
+    }
     #expect(fakes.registrationCalls.value == ["register"])
     #expect(fakes.daemonCalls.value == ["register"])
     await task.cancel()
@@ -63,7 +72,10 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .enabled
+      $0.status.daemonRegistration = .enabled
+    }
     #expect(fakes.daemonCalls.value.isEmpty)
     await task.cancel()
   }
@@ -75,7 +87,10 @@ struct AppFeatureTests {
 
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .requiresApproval; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .requiresApproval
+      $0.status.daemonRegistration = .enabled
+    }
     #expect(fakes.registrationCalls.value.isEmpty)
     await task.cancel()
   }
@@ -136,7 +151,10 @@ struct AppFeatureTests {
     // The rest of the app still works.
     let task = await store.send(.task)
     await store.receive(\.status.task)
-    await store.receive(\.status.refreshed) { $0.status.registration = .enabled; $0.status.daemonRegistration = .enabled }
+    await store.receive(\.status.refreshed) {
+      $0.status.registration = .enabled
+      $0.status.daemonRegistration = .enabled
+    }
     await task.cancel()
 
     #expect(store.state.configuration == .starter)
@@ -357,7 +375,8 @@ struct AppFeatureTests {
     await store.receive(\.status.refreshed) { $0.status.registration = .notRegistered }
     #expect(
       store.state.status.registrationMessage
-        == "The helper couldn't be enabled: Operation not permitted\nThe input service couldn't be enabled: Operation not permitted"
+        == "The helper couldn't be enabled: Operation not permitted\n"
+        + "The input service couldn't be enabled: Operation not permitted"
     )
     await task.cancel()
   }

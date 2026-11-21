@@ -51,7 +51,9 @@ struct ShellSnapshotTests {
 
   @Test func appWindowReadOnly() throws {
     let store = try makeStore(AppFeature(), dependencies: fixedDependencies(fileData: Data("{".utf8))) {
-      withUSLabels(AppFeature.State(status: StatusFeature.State(helper: .notRunning, registration: .enabled, daemonRegistration: .enabled)))
+      withUSLabels(AppFeature.State(
+        status: StatusFeature.State(helper: .notRunning, registration: .enabled, daemonRegistration: .enabled)
+      ))
     }
     assertBothAppearances(AppView(store: store), size: CGSize(width: 1000, height: 700))
   }
@@ -64,7 +66,11 @@ struct ShellSnapshotTests {
       registration: .enabled,
       daemonRegistration: .enabled
     ),
-    "running": StatusFeature.State(helper: .running(HelperStatus(permissions: granted)), registration: .enabled, daemonRegistration: .enabled),
+    "running": StatusFeature.State(
+      helper: .running(HelperStatus(permissions: granted)),
+      registration: .enabled,
+      daemonRegistration: .enabled
+    ),
     "inputServiceNeedsInputMonitoring": StatusFeature.State(
       helper: .running(HelperStatus(permissions: granted, inputServiceNeedsInputMonitoring: true)),
       registration: .enabled,
@@ -82,7 +88,9 @@ struct ShellSnapshotTests {
     ),
   ]
 
-  @Test(arguments: ["notRunning", "needsApproval", "permissionsMissing", "running", "paused", "inputServiceNeedsInputMonitoring"])
+  @Test(arguments: [
+    "notRunning", "needsApproval", "permissionsMissing", "running", "paused", "inputServiceNeedsInputMonitoring",
+  ])
   func status(_ name: String) throws {
     let state = try #require(Self.statuses[name])
     let store = try makeStore(StatusFeature(), dependencies: fixedDependencies()) { state }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Check every file is formatted as SwiftFormat would format it (mise run format fixes it)"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# On GitHub Actions, report unformatted files as annotations on the pull request.
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  swiftformat --lint --reporter github-actions-log .
+else
+  swiftformat --lint .
+fi

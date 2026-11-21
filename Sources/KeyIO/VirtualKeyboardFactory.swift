@@ -128,7 +128,8 @@ final class LiveVirtualKeyboard: VirtualKeyboard {
   }
 }
 
-/// LED output reports (Caps Lock) are not forwarded to the physical keyboards; get-report requests are answered with an empty report of the requested ID.
+/// LED output reports (Caps Lock) are not forwarded to the physical keyboards; get-report requests are
+/// answered with an empty report of the requested ID.
 private struct IgnoringDelegate: HIDVirtualDeviceDelegate {
   func hidVirtualDevice(
     _: HIDVirtualDevice, receivedSetReportRequestOfType _: HIDReportType, id _: HIDReportID?, data _: Data
