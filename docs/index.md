@@ -29,7 +29,7 @@ and stays out of the way otherwise.
 While you hold a layer key, its layer replaces the keys underneath. Keys it doesn't map fall through, so
 the rest of your keyboard stays as it is.
 </FeatureCard>
-<FeatureCard title="Change any key" shot="app/key-editor" alt="The key editor: Caps Lock sends Escape with Command and Shift, and holds for the Mod layer" zoom="100%" focus="center top">
+<FeatureCard title="Change any key" shot="app/key-editor" alt="The key editor: Caps Lock sends Escape with Command and Shift, and holds for the Mod layer" zoom="360px" focus="center top">
 Click a key and pick what it does: a keypress with modifiers, a media key, a layer, another keymap or a
 macro. Changes apply right away.
 </FeatureCard>
@@ -40,7 +40,7 @@ macro. Changes apply right away.
 <FeatureCard title="Macros" shot="app/window-macro" alt="A macro in KeyLayers with key, text and delay steps" zoom="150%" focus="62% 0%">
 A list of key taps, typed text and pauses that one key plays. Typed for your keyboard layout.
 </FeatureCard>
-<FeatureCard title="Settings that stay small" shot="app/settings" alt="KeyLayers settings: double-tap timeout, layer overlay, menu bar and login options" zoom="100%" focus="center top">
+<FeatureCard title="Settings that stay small" shot="app/settings" alt="KeyLayers settings: double-tap timeout, layer overlay, menu bar and login options" zoom="460px" focus="center top">
 Double-tap timing, a short overlay when you lock a layer, the keymap and layer in the menu bar, and
 whether the helper starts at login.
 </FeatureCard>
