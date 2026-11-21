@@ -15,6 +15,7 @@ images=(
   "window ShellSnapshotTests/appWindow"
   "window-macro ShellSnapshotTests/appWindowWithMacroSelected"
   "settings ShellSnapshotTests/settings"
+  "key-editor KeyActionEditorSnapshotTests/keypressTabWithRoleAndModifiers"
   "status-not-running ShellSnapshotTests/status_notRunning"
   "status-needs-approval ShellSnapshotTests/status_needsApproval"
   "status-daemon-needs-approval ShellSnapshotTests/status_daemonNeedsApproval"
@@ -37,3 +38,14 @@ for entry in "${images[@]}"; do
   done
 done
 echo "Copied ${#images[@]} screenshots (light and dark) to $out"
+
+# The app icon for the landing page, from an installed KeyLayers (the icon is compiled into the app;
+# the repo only has the Icon Composer source). KEYLAYERS_APP picks another copy.
+app="${KEYLAYERS_APP:-/Applications/KeyLayers.app}"
+if [[ -f "$app/Contents/Resources/AppIcon.icns" ]]; then
+  sips -s format png -Z 512 "$app/Contents/Resources/AppIcon.icns" --out docs/public/icon.png >/dev/null
+  sips -s format png -Z 64 "$app/Contents/Resources/AppIcon.icns" --out docs/public/favicon.png >/dev/null
+  echo "Copied the app icon from $app to docs/public/icon.png and favicon.png"
+else
+  echo "warning: no $app; docs/public/icon.png and favicon.png are unchanged" >&2
+fi
