@@ -3,7 +3,7 @@ import { downloadURL } from './links'
 
 export const nav = [
   { text: 'Guide', link: '/guide/install' },
-  { text: 'Contributing', link: '/ARCHITECTURE' },
+  { text: 'Contributing', link: '/contributing/' },
   { text: 'Download', link: downloadURL },
 ]
 
@@ -23,6 +23,7 @@ export const sidebar = [
   {
     text: 'Contributing',
     items: [
+      { text: 'Building from source', link: '/contributing/' },
       { text: 'Architecture', link: '/ARCHITECTURE' },
       { text: 'Testing', link: '/TESTING' },
       { text: 'Releasing & manual checks', link: '/MANUAL-CHECKLIST' },

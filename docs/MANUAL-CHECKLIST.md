@@ -48,8 +48,9 @@ and be offered to every newer install as an update. A release created by hand wi
 
 KeyLayers needs three approvals, none of which is requested by a system prompt for the daemon.
 
-- [ ] Login Items: System Settings > General > Login Items & Extensions lists KeyLayers twice, for the helper
-  and for the input service (the root daemon). Approve both (the configurator offers to register them).
+- [ ] Login Items: System Settings > General > Login Items & Extensions lists KeyLayers once under App
+  Background Activity, as "2 items" (the helper and the input service, the root daemon); its one switch
+  approves both (the configurator offers to register them).
 - [ ] Accessibility: add/enable KeyLayersHelper (needed to post the remapped events).
 - [ ] Input Monitoring for the daemon: System Settings > Privacy & Security > Input Monitoring > "+", then pick
   `KeyLayers.app/Contents/Library/HelperTools/KeyLayersInputDaemon` (inside the app bundle; press Cmd+Shift+G in the
