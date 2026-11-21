@@ -137,7 +137,10 @@ public final class InputDaemonServer: NSObject, NSXPCListenerDelegate, Sendable 
       if shouldLog {
         let console = consoleUser.map(String.init) ?? "none"
         logger.notice(
-          "startCapture from uid \(connection.effectiveUserIdentifier) ignored: not the console user (\(console, privacy: .public)); repeats are not logged for a minute"
+          """
+          startCapture from uid \(connection.effectiveUserIdentifier) ignored: \
+          not the console user (\(console, privacy: .public)); repeats are not logged for a minute
+          """
         )
       }
       return

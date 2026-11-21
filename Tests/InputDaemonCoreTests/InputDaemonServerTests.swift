@@ -76,7 +76,14 @@ private struct Peer: Sendable {
   }
 
   var daemon: any InputDaemonXPCProtocol {
-    connection.remoteObjectProxy as! any InputDaemonXPCProtocol
+    Self.daemonProxy(connection.remoteObjectProxy)
+  }
+
+  private static func daemonProxy(_ proxy: Any) -> any InputDaemonXPCProtocol {
+    guard let daemon = proxy as? any InputDaemonXPCProtocol else {
+      preconditionFailure("the connection's remote interface is InputDaemonXPCProtocol")
+    }
+    return daemon
   }
 
   func startCapture() async {
@@ -95,7 +102,7 @@ private struct Peer: Sendable {
           continuation.resume(returning: value)
         }
       }
-      let proxy = connection.remoteObjectProxyWithErrorHandler { _ in resume(nil) } as! any InputDaemonXPCProtocol
+      let proxy = Self.daemonProxy(connection.remoteObjectProxyWithErrorHandler { _ in resume(nil) })
       proxy.heartbeat { resume($0) }
     }
   }

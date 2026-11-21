@@ -362,7 +362,9 @@ let project = Project(
     .scheme(
       name: "UITests",
       shared: true,
-      buildAction: .buildAction(targets: ["KeyLayersHelper", "KeyLayersInputDaemon", "Configurator", "ConfiguratorUITests"]),
+      buildAction: .buildAction(
+        targets: ["KeyLayersHelper", "KeyLayersInputDaemon", "Configurator", "ConfiguratorUITests"]
+      ),
       testAction: .targets([.testableTarget(target: "ConfiguratorUITests")])
     ),
   ]

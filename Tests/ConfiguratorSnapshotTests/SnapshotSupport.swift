@@ -88,8 +88,10 @@ func fixedDependencies(
   return {
     $0.defaultFileStorage = .inMemory(fileSystem: files)
     $0.defaultAppStorage = defaults.value
-    $0.helperRegistration = HelperRegistrationClient(status: { .enabled }, register: {}, unregister: {},
-                                                     daemonStatus: { .enabled }, registerDaemon: {}, unregisterDaemon: {})
+    $0.helperRegistration = HelperRegistrationClient(
+      status: { .enabled }, register: {}, unregister: {},
+      daemonStatus: { .enabled }, registerDaemon: {}, unregisterDaemon: {}
+    )
     $0.helperClient = HelperClient(states: { AsyncStream { _ in } }, setPaused: { _ in }, start: {})
     $0.systemSettings = SystemSettingsClient(open: { _ in })
     $0.keyboardDetection = KeyboardDetectionClient(keyboards: { [] })

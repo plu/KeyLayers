@@ -254,7 +254,8 @@ struct StatusFeatureTests {
     )
     #expect(state.showsInputServiceInputMonitoringStep)
     #expect(state.headline == "Remapper waiting: the input service needs Input Monitoring")
-    #expect(!StatusFeature.State(helper: .running(HelperStatus(permissions: granted))).showsInputServiceInputMonitoringStep)
+    let runningState = StatusFeature.State(helper: .running(HelperStatus(permissions: granted)))
+    #expect(!runningState.showsInputServiceInputMonitoringStep)
     #expect(!StatusFeature.State(helper: .notRunning).showsInputServiceInputMonitoringStep)
   }
 
@@ -308,7 +309,8 @@ struct StatusFeatureTests {
     }
     #expect(
       store.state.modifierKeysNote
-        == "macOS Modifier Keys settings don't apply while KeyLayers remaps a keyboard. Set those remaps in your keymap instead."
+        == "macOS Modifier Keys settings don't apply while KeyLayers remaps a keyboard. "
+        + "Set those remaps in your keymap instead."
     )
     await store.skipInFlightEffects()
     #expect(StatusFeature.State().modifierKeysNote == nil)

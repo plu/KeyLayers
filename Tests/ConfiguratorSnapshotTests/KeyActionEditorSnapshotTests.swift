@@ -21,7 +21,9 @@ struct KeyActionEditorSnapshotTests {
     configuration.keymaps.append(Keymap(id: codingID, name: "Coding", abbreviation: "COD"))
     let keymaps = configuration.keymaps.elements
     let store = try makeStore(KeyActionEditorFeature(), dependencies: fixedDependencies()) {
-      var state = KeyActionEditorFeature.State(key: .capsLock, layer: layer, action: action, keymaps: keymaps, macros: macros)
+      var state = KeyActionEditorFeature.State(
+        key: .capsLock, layer: layer, action: action, keymaps: keymaps, macros: macros
+      )
       state.labels = StaticKeyLabels.usANSI
       configure(&state)
       return state

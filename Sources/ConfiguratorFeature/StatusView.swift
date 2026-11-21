@@ -51,7 +51,10 @@ public struct StatusView: View {
         if store.showsInputServiceInputMonitoringStep {
           VStack(alignment: .leading, spacing: 6) {
             Label(
-              "KeyLayers' input service needs Input Monitoring. Click + in Input Monitoring and add KeyLayersInputDaemon.",
+              """
+              KeyLayers' input service needs Input Monitoring. \
+              Click + in Input Monitoring and add KeyLayersInputDaemon.
+              """,
               systemImage: "exclamationmark.triangle.fill"
             )
             .foregroundStyle(.orange)
