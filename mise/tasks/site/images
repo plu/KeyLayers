@@ -39,6 +39,9 @@ for entry in "${images[@]}"; do
 done
 echo "Copied ${#images[@]} screenshots (light and dark) to $out"
 
+# The status strip snapshots are rendered taller than their text: drop the empty rows below it.
+swift scripts/trim-bottom.swift "$out"/status-*.png
+
 # The app icon for the landing page, from an installed KeyLayers (the icon is compiled into the app;
 # the repo only has the Icon Composer source). KEYLAYERS_APP picks another copy.
 app="${KEYLAYERS_APP:-/Applications/KeyLayers.app}"

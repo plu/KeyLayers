@@ -18,3 +18,6 @@ commits inside it, and fix it before merging if the PR's scope changed.
 
 Before pushing, run `mise run lint` (SwiftLint strict and SwiftFormat; `mise run format` fixes the
 formatting) and `mise run test:unit`. CI runs both on every pull request; see `docs/TESTING.md`.
+
+When you change the website (`docs/`, `package.json`, `mise/tasks/site/`), also run `mise run site:build`: it
+fails on dead links and on missing or broken screenshots, and CI runs it on those pull requests too.
