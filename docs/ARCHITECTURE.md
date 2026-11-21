@@ -50,7 +50,7 @@ seize.
 | --- | --- | --- | --- |
 | Configurator `KeyLayers.app` | `<prefix>.configurator` | user | — |
 | Helper `KeyLayersHelper` | `<prefix>.helper` | user | login item, `SMAppService.agent` |
-| Input daemon `KeyLayersInputDaemon` | `<prefix>.inputd` | root | `SMAppService.daemon` |
+| Input daemon `KeyLayersInputDaemon` | `<prefix>.inputservice` | root | `SMAppService.daemon` |
 
 The `<prefix>` comes from `TUIST_BUNDLE_ID_PREFIX` (default `com.plunien.keylayers`). Debug builds
 append `.dev` to it (see "Signing and builds"), so a dev build runs beside an installed release.
@@ -179,7 +179,7 @@ bundle ID, anchored to Apple, signed by the team (`HelperXPCServer.configuratorR
 
 ### Helper ↔ input daemon
 
-The daemon vends `<TEAMID>.<prefix>.inputd` (`InputDaemonXPCProtocol`: `startCapture`,
+The daemon vends `<TEAMID>.<prefix>.inputservice` (`InputDaemonXPCProtocol`: `startCapture`,
 `stopCapture`, `heartbeat`); the helper exports `InputDaemonClientXPCProtocol` (`devicesChanged`,
 `keyEvents`). The helper always connects to the daemon, never the other way round.
 
@@ -239,7 +239,7 @@ The helper doesn't need Input Monitoring: it never reads input itself.
 - The configurator and the daemon need no profile. The daemon is a command-line tool with its
   Info.plist embedded in the binary.
 - **Dev and release identities.** Debug builds use the prefix `<prefix>.dev` for everything that
-  identifies an installation: bundle IDs (`<prefix>.dev.configurator`, `.dev.helper`, `.dev.inputd`),
+  identifies an installation: bundle IDs (`<prefix>.dev.configurator`, `.dev.helper`, `.dev.inputservice`),
   launchd labels and plists, both Mach services and the App Group (`<TEAMID>.<prefix>.dev`). In
   System Settings they show as "KeyLayers Dev" and "KeyLayers Helper Dev". Release builds keep the
   plain prefix, unchanged since the first release. `Project.swift` derives both sets from one

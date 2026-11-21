@@ -32,16 +32,16 @@ public enum AppIdentifiers {
 
   /// The root input daemon's Mach service, which the helper connects to.
   public static var inputDaemonMachService: String {
-    infoString("InputDaemonMachServiceName") ?? "com.plunien.keylayers.tests.inputd"
+    infoString("InputDaemonMachServiceName") ?? "com.plunien.keylayers.tests.inputservice"
   }
 
   /// The input daemon's signing identifier, which the helper requires of the daemon it connects to.
   public static var inputDaemonBundleID: String {
-    infoString("InputDaemonBundleIdentifier") ?? "com.plunien.keylayers.inputd"
+    infoString("InputDaemonBundleIdentifier") ?? "com.plunien.keylayers.inputservice"
   }
 
   public static var inputDaemonPlist: String {
-    infoString("InputDaemonPlistName") ?? "com.plunien.keylayers.inputd.plist"
+    infoString("InputDaemonPlistName") ?? "com.plunien.keylayers.inputservice.plist"
   }
 
   /// `<group container>/configuration.json`. Falls back to

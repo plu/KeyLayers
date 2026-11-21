@@ -20,9 +20,13 @@ func identitySettings(prefix: String, displayNameSuffix: String) -> SettingsDict
     "HELPER_BUNDLE_ID": .string("\(prefix).helper"),
     "CONFIGURATOR_BUNDLE_ID": .string("\(prefix).configurator"),
     "HELPER_LAUNCHD_PLIST_NAME": .string("\(prefix).helper.plist"),
-    "INPUT_DAEMON_LABEL": .string("\(prefix).inputd"),
-    "INPUT_DAEMON_MACH_SERVICE_NAME": .string("\(groupPrefix).inputd"),
-    "INPUT_DAEMON_PLIST_NAME": .string("\(prefix).inputd.plist"),
+    // `inputservice`, not the earlier `inputd`: a registration of `<prefix>.inputd` made by a dev build
+    // before dev builds had their own identity can stay stuck in Background Task Management, with a
+    // code requirement launchd checks the Developer ID daemon against and that re-registering doesn't
+    // replace. A new label gives every Mac a fresh record.
+    "INPUT_DAEMON_LABEL": .string("\(prefix).inputservice"),
+    "INPUT_DAEMON_MACH_SERVICE_NAME": .string("\(groupPrefix).inputservice"),
+    "INPUT_DAEMON_PLIST_NAME": .string("\(prefix).inputservice.plist"),
     "CONFIGURATOR_DISPLAY_NAME": .string("KeyLayers\(displayNameSuffix)"),
     "HELPER_DISPLAY_NAME": .string("KeyLayers Helper\(displayNameSuffix)"),
   ]

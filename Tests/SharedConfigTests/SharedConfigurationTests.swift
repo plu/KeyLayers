@@ -69,9 +69,9 @@ struct SharedConfigurationTests {
   }
 
   @Test func daemonIdentifierFallbacks() {
-    #expect(AppIdentifiers.inputDaemonMachService == "com.plunien.keylayers.tests.inputd")
-    #expect(AppIdentifiers.inputDaemonPlist == "com.plunien.keylayers.inputd.plist")
-    #expect(AppIdentifiers.inputDaemonBundleID == "com.plunien.keylayers.inputd")
+    #expect(AppIdentifiers.inputDaemonMachService == "com.plunien.keylayers.tests.inputservice")
+    #expect(AppIdentifiers.inputDaemonPlist == "com.plunien.keylayers.inputservice.plist")
+    #expect(AppIdentifiers.inputDaemonBundleID == "com.plunien.keylayers.inputservice")
   }
 
   @Test func identifiersFallBackOutsideAnApp() {
