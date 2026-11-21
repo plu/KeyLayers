@@ -1,6 +1,7 @@
 import AppKit
 import Dependencies
 import DependenciesMacros
+import InputDaemonIPC
 
 /// App-level actions of the helper process.
 @DependencyClient
@@ -11,6 +12,25 @@ public struct HelperAppClient: Sendable {
   public var terminate: @Sendable () async -> Void
   /// Yields when the process is asked to terminate (SIGTERM). Single consumer.
   public var terminationRequests: @Sendable () -> AsyncStream<Void> = { .finished }
+  /// Whether an update (or a rebuild) replaced the helper's executable since launch.
+  public var executableReplaced: @Sendable () -> Bool = { false }
+  /// Exits so launchd starts the replaced executable. Call after stopping the runtime.
+  public var restartForUpdate: @Sendable () async -> Void
+}
+
+/// The helper's executable as it was at launch. Read it once at app start
+/// (`HelperAppClient.recordLaunchIdentity()`), so the comparison starts from the launched file.
+private let executablePath = Bundle.main.executablePath.map {
+  URL(fileURLWithPath: $0).resolvingSymlinksInPath().path
+}
+
+private let launchIdentity = executablePath.flatMap { ExecutableIdentity.current(path: $0) }
+
+public extension HelperAppClient {
+  /// Records the launched executable's identity; call at app start.
+  static func recordLaunchIdentity() {
+    _ = launchIdentity
+  }
 }
 
 extension HelperAppClient: DependencyKey {
@@ -40,6 +60,15 @@ extension HelperAppClient: DependencyKey {
           signal(SIGTERM, SIG_DFL)
         }
       }
+    },
+    executableReplaced: {
+      // Without a launch identity nothing counts as changed (no exit loop).
+      ExecutableIdentity.hasChanged(path: executablePath, since: launchIdentity)
+    },
+    restartForUpdate: {
+      // Non-zero: the launchd job restarts only unsuccessful exits (KeepAlive.SuccessfulExit =
+      // false), while a Quit (status 0) stays stopped. 75 is EX_TEMPFAIL.
+      exit(75)
     }
   )
 

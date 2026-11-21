@@ -48,6 +48,8 @@ private final class Fakes: Sendable {
   let requestsContinuation: AsyncStream<HelperRequest>.Continuation
   let terminationRequests: AsyncStream<Void>
   let terminationRequestsContinuation: AsyncStream<Void>.Continuation
+  /// Whether an update has replaced the helper's executable on disk.
+  let executableReplaced = LockIsolated(false)
 
   init() {
     (events, eventsContinuation) = AsyncStream.makeStream()
@@ -98,7 +100,9 @@ private final class Fakes: Sendable {
     dependencies.helperApp = HelperAppClient(
       openConfigurator: { self.calls.withValue { $0.append("openConfigurator") } },
       terminate: { self.calls.withValue { $0.append("terminate") } },
-      terminationRequests: { self.terminationRequests }
+      terminationRequests: { self.terminationRequests },
+      executableReplaced: { self.executableReplaced.value },
+      restartForUpdate: { self.calls.withValue { $0.append("restartForUpdate") } }
     )
   }
 }
@@ -632,6 +636,33 @@ struct HelperFeatureTests {
     await task.cancel()
     await store.finish()
     #expect(fakes.starts.value.isEmpty)
+    #expect(fakes.calls.value == ["stop", "terminate"])
+  }
+
+  @Test func executableReplacedRestartsAfterStoppingRuntime() async {
+    let fakes = Fakes()
+    let store = makeStore(fakes)
+
+    let task = await store.send(.task) { $0.hasStartedTask = true }
+    await store.receive(\.permissionsChecked)
+    // An update replaced the helper on disk: the next poll notices.
+    fakes.executableReplaced.setValue(true)
+    await fakes.clock.advance(by: HelperFeature.permissionPollInterval)
+    await store.receive(\.executableReplaced) { $0.isQuitting = true }
+    // Polling stopped: nothing more arrives.
+    await fakes.clock.advance(by: .seconds(10))
+    await task.cancel()
+    await store.finish()
+    #expect(fakes.calls.value == ["stop", "restartForUpdate"])
+  }
+
+  @Test func userQuitNeverRestartsForUpdate() async {
+    let fakes = Fakes()
+    fakes.executableReplaced.setValue(true)
+    let store = makeStore(fakes)
+
+    await store.send(.quitTapped) { $0.isQuitting = true }
+    await store.finish()
     #expect(fakes.calls.value == ["stop", "terminate"])
   }
 

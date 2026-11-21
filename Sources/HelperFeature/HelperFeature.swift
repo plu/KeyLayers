@@ -138,6 +138,8 @@ public struct HelperFeature: Sendable {
     case request(HelperRequest)
     case openConfiguratorTapped
     case quitTapped
+    /// An update replaced the helper's executable: stop and exit so launchd starts the new one.
+    case executableReplaced
   }
 
   static let permissionPollInterval: Duration = .seconds(2)
@@ -242,22 +244,29 @@ public struct HelperFeature: Sendable {
         return .run { _ in await app.openConfigurator() }
 
       case .quitTapped:
-        guard !state.isQuitting else { return .none }
-        state.isQuitting = true
-        return .merge(
-          .cancel(id: CancelID.permissionPoll),
-          .cancel(id: CancelID.captureGrace),
-          .run { _ in
-            // Releases held keys and hands the keyboards back before the process exits.
-            runtime.stop()
-            await app.terminate()
-          }
-        )
+        return quit(&state) { await app.terminate() }
+
+      case .executableReplaced:
+        return quit(&state) { await app.restartForUpdate() }
       }
     }
     .onChange(of: \.helperStatus) { _, status in
       Reduce { _, _ in publish(status) }
     }
+  }
+
+  /// Stops polling and the runtime (releasing held keys, handing the keyboards back), then `exit`s.
+  private func quit(_ state: inout State, exit: @escaping @Sendable () async -> Void) -> Effect<Action> {
+    guard !state.isQuitting else { return .none }
+    state.isQuitting = true
+    return .merge(
+      .cancel(id: CancelID.permissionPoll),
+      .cancel(id: CancelID.captureGrace),
+      .run { _ in
+        runtime.stop()
+        await exit()
+      }
+    )
   }
 
   private func task(_ state: inout State) -> Effect<Action> {
@@ -276,9 +285,14 @@ public struct HelperFeature: Sendable {
         }
         await send(.permissionsChecked(status))
         // Keeps polling after the start: a failed start is retried on the next poll, and the
-        // configurator sees permission changes.
+        // configurator sees permission changes. Each poll also notices an update that replaced
+        // the helper on disk.
         while true {
           try await clock.sleep(for: Self.permissionPollInterval)
+          if app.executableReplaced() {
+            await send(.executableReplaced)
+            return
+          }
           await send(.permissionsChecked(permissions.status()))
         }
       }

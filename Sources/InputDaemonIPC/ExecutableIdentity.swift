@@ -1,8 +1,8 @@
 import Foundation
 
 /// Identifies one version of a file on disk: replaced files get a new inode, rewritten ones a new
-/// modification time or size. The daemon compares its own executable's identity at launch with the
-/// current one to notice that an update or build replaced it.
+/// modification time or size. The daemon and the helper each compare their own executable's identity
+/// at launch with the current one to notice that an update or build replaced it.
 public struct ExecutableIdentity: Equatable, Sendable {
   public let device: Int64
   public let inode: UInt64

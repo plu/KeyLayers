@@ -15,6 +15,8 @@ struct KeyLayersHelperApp: App {
   private let store: StoreOf<HelperFeature>
 
   init() {
+    // Before anything else can be replaced under us: the update check compares against this.
+    HelperAppClient.recordLaunchIdentity()
     let server = HelperXPCServer(
       listener: NSXPCListener(machServiceName: AppIdentifiers.helperMachService),
       // Only the configurator may pause the helper or read its status.
