@@ -109,7 +109,8 @@ cd "${ROOT}"
 export TUIST_HELPER_PROVISIONING_PROFILE="${HELPER_PROVISIONING_PROFILE}"
 rm -rf "${ARCHIVE}" "${EXPORT}"
 tuist install
-tuist generate --no-open
+# From source: a release never links binaries from the Tuist cache.
+tuist generate --no-binary-cache --no-open
 
 xcodebuild archive \
   -workspace KeyLayers.xcworkspace \

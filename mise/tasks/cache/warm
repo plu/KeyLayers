@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Build the external packages and upload them to the Tuist binary cache"
+set -euo pipefail
+
+cd "$MISE_PROJECT_ROOT"
+# Needs a Tuist login (`tuist auth login`, or TUIST_TOKEN from fnox's ci profile): unauthenticated,
+# `tuist cache warm` fails rather than warming nothing. The profile is named here because `warm` doesn't
+# read the default one from Tuist.swift: without it, it also builds and uploads KeyLayers' own modules,
+# which `tuist test` (external packages only) never asks for.
+tuist install
+tuist cache warm --cache-profile only-external
