@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#MISE description="Write build/release/SHA256SUMS: the zip and every executable in the app (after mise run release)"
+set -euo pipefail
+
+# The release workflow attests every file listed here (GitHub build provenance) and publishes the
+# list with the release. Listing the executables inside the app, not only the zip, lets anyone
+# check the copy they run: `gh attestation verify` works on a file's digest, and the installed
+# files are byte for byte the ones in the zip (signed and notarized before it was made; Sparkle
+# installs updates from the same zip). See docs/guide/verify.md.
+#
+# Paths are relative to build/release/export, so they read like the installed app:
+# KeyLayers.app/Contents/Library/HelperTools/KeyLayersInputDaemon.
+OUT="${MISE_PROJECT_ROOT}/build/release"
+EXPORT="${OUT}/export"
+ZIP="${OUT}/KeyLayers.zip"
+SUMS="${OUT}/SHA256SUMS"
+
+[ -f "${ZIP}" ] || { echo "error: ${ZIP} not found. Run: mise run release" >&2; exit 1; }
+[ -d "${EXPORT}/KeyLayers.app" ] || { echo "error: ${EXPORT}/KeyLayers.app not found. Run: mise run release" >&2; exit 1; }
+
+{
+  (cd "${OUT}" && shasum -a 256 KeyLayers.zip)
+  # Executables only: Mach-O files with the execute bit (the app, the helper, the input daemon and
+  # Sparkle's tools). Symlinks inside the framework are skipped by -type f.
+  (cd "${EXPORT}" && find KeyLayers.app -type f -perm +111 | LC_ALL=C sort | while IFS= read -r file; do
+    shasum -a 256 "${file}"
+  done)
+} > "${SUMS}"
+
+count="$(wc -l < "${SUMS}" | tr -d ' ')"
+grep -q 'KeyLayersInputDaemon$' "${SUMS}" || { echo "error: ${SUMS} does not list KeyLayersInputDaemon" >&2; exit 1; }
+echo "Wrote ${SUMS} (${count} files)"
+cat "${SUMS}"

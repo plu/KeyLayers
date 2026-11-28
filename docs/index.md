@@ -80,6 +80,12 @@ no analytics, no telemetry. The source is on <a href="https://github.com/plu/Key
 licensed.</p>
 </div>
 </div>
+<div class="privacy-verify">
+<h3>Don't take my word for it</h3>
+<p>Every release is built on GitHub Actions from a public commit, and each executable comes with signed
+build provenance. One command shows that the input service on your Mac was built from the code you can read.</p>
+<a class="landing-button landing-button-alt" href="./guide/verify">Verify your copy</a>
+</div>
 </LandingSection>
 
 <div class="landing-closing">
