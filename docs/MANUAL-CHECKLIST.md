@@ -28,11 +28,16 @@ which `release:archive` installs when set. After regenerating the profile in the
 
 Publishing: push a version tag (`git tag v1.2.3 && git push origin v1.2.3`). The workflow runs lint and the unit
 tests on the tagged commit, then builds 1.2.3 (build number = its run number), signs the zip for Sparkle with
-`SPARKLE_ED_PRIVATE_KEY`, and creates the GitHub Release with `KeyLayers.zip` and `appcast.xml`. Installed copies find it through
+`SPARKLE_ED_PRIVATE_KEY`, attests build provenance for the zip and every executable in the app
+(`release:checksums` lists them in `SHA256SUMS`), and creates the GitHub Release with `KeyLayers.zip`, `appcast.xml`
+and `SHA256SUMS`. Installed copies find it through
 `releases/latest/download/appcast.xml`. Then it starts the Site workflow, so the website's Download button
 shows the new version. Dispatched runs never publish and build 0.0.0 without an updater.
 A tag must be a higher version than the latest release (`release:check-tag`): a lower one would become "latest"
 and be offered to every newer install as an update. A release created by hand without `appcast.xml` breaks the feed.
+
+After publishing, run the commands in [Verify your copy](./guide/verify.md) against the release zip and an installed
+copy: every executable passes `gh attestation verify`, and the commit shown is the tagged one.
 
 ## Core behaviour
 

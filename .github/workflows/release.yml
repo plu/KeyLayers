@@ -38,10 +38,16 @@ jobs:
     # GitHub's image with Xcode 27 (in preview); the macos-26 image stops at Xcode 26.
     runs-on: xcode-27
     timeout-minutes: 60
-    # contents: publishing the release; actions: starting the Site workflow afterwards.
+    # The "release" environment's rules (who approves, which refs may deploy) gate everything that
+    # signs: this job waits for approval before its first step.
+    environment: release
+    # contents: publishing the release; actions: starting the Site workflow afterwards;
+    # id-token and attestations: signing the build provenance.
     permissions:
       contents: write
       actions: write
+      id-token: write
+      attestations: write
 
     steps:
       # Before anything slow: a tag that isn't a version fails here. Every build gets this run's
@@ -114,11 +120,25 @@ jobs:
         env:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
 
+      # Build provenance for the zip and every executable in the app, signed with this run's identity
+      # (Sigstore): anyone can check with `gh attestation verify` that a file, the installed one
+      # included, was built here from the tagged commit. See docs/guide/verify.md. Before publishing,
+      # so a release never goes out without it.
+      - name: Checksums
+        if: github.ref_type == 'tag'
+        run: mise run release:checksums
+
+      - name: Attest build provenance
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: build/release/SHA256SUMS
+
       # Marked latest, so the feed URL (releases/latest/download/appcast.xml) serves this appcast.
       - name: Publish the GitHub Release
         if: github.ref_type == 'tag'
         run: |
-          gh release create "${RELEASE_TAG}" build/release/KeyLayers.zip build/release/appcast.xml \
+          gh release create "${RELEASE_TAG}" build/release/KeyLayers.zip build/release/appcast.xml build/release/SHA256SUMS \
             --title "KeyLayers ${TUIST_MARKETING_VERSION}" --generate-notes --verify-tag
         env:
           GH_TOKEN: ${{ github.token }}

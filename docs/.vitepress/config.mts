@@ -18,6 +18,7 @@ export const sidebar = [
       { text: 'Macros', link: '/guide/macros' },
       { text: 'Pause and emergency stop', link: '/guide/pause' },
       { text: 'Updates', link: '/guide/updates' },
+      { text: 'Verify your copy', link: '/guide/verify' },
       { text: 'Troubleshooting', link: '/guide/troubleshooting' },
     ],
   },

@@ -361,6 +361,24 @@ html.dark {
   color: var(--vp-c-text-2);
 }
 
+.privacy-verify {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--landing-card-border);
+}
+.privacy-verify h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--landing-heading);
+}
+.privacy-verify p {
+  max-width: 720px;
+  margin: 0 0 20px;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+}
+
 .landing-closing {
   display: flex;
   flex-wrap: wrap;
