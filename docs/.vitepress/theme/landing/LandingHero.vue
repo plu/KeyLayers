@@ -21,12 +21,14 @@ import Shot from '../Shot.vue'
         <a class="landing-button landing-button-brand" :href="downloadURL">
           Download KeyLayers<span v-if="release.version" class="landing-version">v{{ release.version }}</span>
         </a>
+        <a class="landing-button landing-button-setup" :href="withBase('/guide/setup')">Setup guide</a>
         <a class="landing-button landing-button-alt" href="https://github.com/plu/KeyLayers">View on GitHub</a>
       </div>
-      <p class="landing-note">
-        Free and open source (MIT) · macOS 26 (Tahoe) or later ·
-        <a :href="withBase('/guide/install')">Setup guide</a>
+      <p class="landing-note landing-note-setup">
+        <strong>Not just download and run:</strong> macOS needs three approvals before KeyLayers can remap,
+        one of them added by hand. <a :href="withBase('/guide/setup')">The setup guide</a> walks you through it.
       </p>
+      <p class="landing-note">Free and open source (MIT) · macOS 26 (Tahoe) or later</p>
     </div>
     <img class="landing-icon" :src="withBase('/icon.png')" alt="" width="256" height="256" />
   </section>
