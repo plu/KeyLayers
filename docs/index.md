@@ -10,6 +10,8 @@ titleTemplate: Layers for every Mac keyboard
 
 <LandingHero />
 
+<LandingSetup />
+
 <LandingSection eyebrow="Why KeyLayers" title="Made for the road." narrow>
 
 At my desk I type on a [UHK](https://ultimatehackingkeyboard.com), the Ultimate Hacking Keyboard, and I
@@ -82,6 +84,7 @@ licensed.</p>
 
 <div class="landing-closing">
 <a class="landing-button landing-button-brand" href="https://github.com/plu/KeyLayers/releases/latest/download/KeyLayers.zip">Download KeyLayers</a>
+<a class="landing-button landing-button-setup" href="./guide/setup">Then follow the setup guide</a>
 </div>
 
 </div>

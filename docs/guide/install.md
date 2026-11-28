@@ -2,6 +2,12 @@
 
 KeyLayers needs macOS 26 (Tahoe) or later.
 
+::: warning Installing is only half of it
+After you open KeyLayers, macOS needs three approvals before it can remap anything: Login Items,
+Accessibility, and Input Monitoring, which you add by hand for `KeyLayersInputDaemon`. The
+[setup guide](./setup) shows every step.
+:::
+
 1. Download [KeyLayers.zip](https://github.com/plu/KeyLayers/releases/latest/download/KeyLayers.zip) from
    the latest release. Safari unzips it for you; otherwise double-click the zip.
 2. Move **KeyLayers** into your **Applications** folder. It has to be there: one of the setup steps points

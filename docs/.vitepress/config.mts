@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 import { downloadURL } from './links'
 
 export const nav = [
+  { text: 'Setup guide', link: '/guide/setup' },
   { text: 'Guide', link: '/guide/install' },
   { text: 'Contributing', link: '/contributing/' },
   { text: 'Download', link: downloadURL },
